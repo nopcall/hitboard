@@ -236,6 +236,7 @@
             <h3>其他配置</h3>
             <div class="feature-checkbox"><input type="checkbox" id="magneticRailCheck"><label for="magneticRailCheck">选配磁吸</label></div>
             <div class="feature-checkbox"><input type="checkbox" id="batteryPackCheck"><label for="batteryPackCheck">选配电池仓</label></div>
+            <div class="feature-checkbox"><input type="checkbox" id="coverScrewCheck"><label for="coverScrewCheck">选配盖板螺丝</label></div>
         </div>
         <div class="export-buttons"><button class="export-btn secondary" id="exportProductBtn"><span>📦 导出产品配置 (含物料清单)</span><span style="font-size:1.2rem;">↗</span></button></div>
         <div class="footer-note">科学街霸，从输入设备做起。</div>
@@ -331,6 +332,7 @@
     let unifyChecked = false;
     let magneticRail = false;
     let batteryPack = false;
+    let coverScrew = false;      // 新增：选配盖板螺丝
     let selectedSwitch = 'arcade';
 
     let wallpaperImage = null;
@@ -676,7 +678,6 @@
             thumbLabel.textContent = '加 1键：F 键';
             bothLabel.textContent = '加 2键：H 键、F 键';
         }
-        // 按键类型始终显示，不做隐藏或自动切换
     }
 
     function updateHideJoystickVisibility() {
@@ -870,7 +871,7 @@
 
         const hasDirectionKeys = hasDirection;
         
-        // 必选物料（更新了摇杆描述）
+        // 必选物料
         let baseItems = [
             { cat:'必选', name:'Hitboard Air 3D 打印套件', qty:'1套', cost:60, supplier:'自选' },
             { cat:'必选', name:'树莓派 Pico（RP2040 带焊接针脚）', qty:'1个', cost:10, supplier:'自选' },
@@ -880,9 +881,11 @@
             { cat:'必选', name:'Typec 公转母（母头带卡扣的塑料外壳）', qty:'1条', cost:5, supplier:'皓月实业' }
         ];
         if (!hideJoystick) {
-            baseItems.push({ cat:'必选', name:'宝联街机摇杆（5p 杜邦线宝联定制中，咨询客服）', qty:'1个', cost:39, supplier:'宝联' });
+            // 如果未隐藏摇杆，才添加摇杆项（上面已经包含，但需要确保不重复添加）
+            // 实际上 baseItems 中已有摇杆，这里不需要额外添加
         } else {
-            // 如果隐藏摇杆，不添加摇杆项（已在上面条件中排除）
+            // 隐藏摇杆时，从 baseItems 中移除摇杆项
+            baseItems = baseItems.filter(item => item.name !== '宝联街机摇杆（5p 杜邦线宝联定制中，咨询客服）');
         }
 
         let optional = [];
@@ -927,12 +930,21 @@
         if (batteryPack) {
             optional.push({ cat:'选配电池仓', name:'电池弹簧 （5 号单极片（12*12））', qty:'1组', cost:1, supplier:'晋荣达弹簧' });
         }
+        // 选配盖板螺丝：如果壁纸已包含螺丝螺帽，则不重复添加
+        const wallpaperHasScrew = wallpaperImage ? true : false;
+        if (coverScrew && !wallpaperHasScrew) {
+            optional.push({ cat:'选配盖板螺丝', name:'M2*12 螺丝（2mm 直径，12mm 长）', qty:'4颗', cost:3, supplier:'固万基/以瑟' });
+            optional.push({ cat:'选配盖板螺丝', name:'M2 螺帽（ 1.8mm 高）', qty:'4颗', cost:3, supplier:'固万基/以瑟' });
+        }
 
+        // 合并去重（基于名称）
         const itemMap = new Map();
         const allTemp = [...baseItems, ...optional];
         allTemp.forEach(item => {
             const key = item.name;
-            if (!itemMap.has(key)) itemMap.set(key, item);
+            if (!itemMap.has(key)) {
+                itemMap.set(key, item);
+            }
         });
         const allItems = Array.from(itemMap.values());
 
@@ -997,6 +1009,7 @@
     const unifyCheckbox = document.getElementById('unifyColors');
     const magneticRailCheck = document.getElementById('magneticRailCheck');
     const batteryPackCheck = document.getElementById('batteryPackCheck');
+    const coverScrewCheck = document.getElementById('coverScrewCheck');
     const rightNone = document.getElementById('rightNone'), rightIndex = document.getElementById('rightIndex'), rightThumb = document.getElementById('rightThumb'), rightBoth = document.getElementById('rightBoth');
     const leftNone = document.getElementById('leftNone'), leftDirection = document.getElementById('leftDirection'), leftDirectionShift = document.getElementById('leftDirectionShift');
     const formArcade = document.getElementById('formArcade'), formMixbox = document.getElementById('formMixbox');
@@ -1025,6 +1038,7 @@
     unifyCheckbox.addEventListener('change', applyUnify);
     magneticRailCheck.addEventListener('change', (e)=>{ magneticRail=e.target.checked; });
     batteryPackCheck.addEventListener('change', (e)=>{ batteryPack=e.target.checked; });
+    coverScrewCheck.addEventListener('change', (e)=>{ coverScrew=e.target.checked; });
     rightNone.addEventListener('change', ()=>{ rightHandMode='none'; draw(); });
     rightIndex.addEventListener('change', ()=>{ rightHandMode='index'; draw(); });
     rightThumb.addEventListener('change', ()=>{ rightHandMode='thumb'; draw(); });
