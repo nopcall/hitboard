@@ -232,11 +232,12 @@
             </div>
         </div>
 
+        <!-- 其他配置（顺序：选配盖板螺丝、选配磁吸、选配电池仓） -->
         <div class="option-group">
             <h3>其他配置</h3>
+            <div class="feature-checkbox"><input type="checkbox" id="coverScrewCheck"><label for="coverScrewCheck">选配盖板螺丝</label></div>
             <div class="feature-checkbox"><input type="checkbox" id="magneticRailCheck"><label for="magneticRailCheck">选配磁吸</label></div>
             <div class="feature-checkbox"><input type="checkbox" id="batteryPackCheck"><label for="batteryPackCheck">选配电池仓</label></div>
-            <div class="feature-checkbox"><input type="checkbox" id="coverScrewCheck"><label for="coverScrewCheck">选配盖板螺丝</label></div>
         </div>
         <div class="export-buttons"><button class="export-btn secondary" id="exportProductBtn"><span>📦 导出产品配置 (含物料清单)</span><span style="font-size:1.2rem;">↗</span></button></div>
         <div class="footer-note">科学街霸，从输入设备做起。</div>
@@ -330,9 +331,9 @@
     let funcKeyColor = document.getElementById('funcKeyColor').value;
     let actionKeyColor = document.getElementById('actionKeyColor').value;
     let unifyChecked = false;
-    let magneticRail = false;
-    let batteryPack = false;
-    let coverScrew = false;      // 新增：选配盖板螺丝
+    let coverScrew = false;      // 选配盖板螺丝
+    let magneticRail = false;    // 选配磁吸
+    let batteryPack = false;     // 选配电池仓
     let selectedSwitch = 'arcade';
 
     let wallpaperImage = null;
@@ -871,21 +872,18 @@
 
         const hasDirectionKeys = hasDirection;
         
-        // 必选物料
+        // 必选物料（更新摇杆描述）
         let baseItems = [
             { cat:'必选', name:'Hitboard Air 3D 打印套件', qty:'1套', cost:60, supplier:'自选' },
             { cat:'必选', name:'树莓派 Pico（RP2040 带焊接针脚）', qty:'1个', cost:10, supplier:'自选' },
-            { cat:'必选', name:'宝联街机摇杆（5p 杜邦线宝联定制中，咨询客服）', qty:'1个', cost:39, supplier:'宝联' },
+            { cat:'必选', name:'宝联街机摇杆（附带 5p 双头杜邦线）', qty:'1个', cost:39, supplier:'宝联' },
             { cat:'必选', name:'单根杜邦线（杜邦转 2.8 端子）', qty:'20条', cost:8, supplier:'华宇动漫三和清水' },
             { cat:'必选', name:'HITBOX 按钮数据线树莓派（1 串 10）', qty:'2条', cost:5.4, supplier:'华宇动漫三和清水' },
             { cat:'必选', name:'Typec 公转母（母头带卡扣的塑料外壳）', qty:'1条', cost:5, supplier:'皓月实业' }
         ];
-        if (!hideJoystick) {
-            // 如果未隐藏摇杆，才添加摇杆项（上面已经包含，但需要确保不重复添加）
-            // 实际上 baseItems 中已有摇杆，这里不需要额外添加
-        } else {
-            // 隐藏摇杆时，从 baseItems 中移除摇杆项
-            baseItems = baseItems.filter(item => item.name !== '宝联街机摇杆（5p 杜邦线宝联定制中，咨询客服）');
+        if (hideJoystick) {
+            // 隐藏摇杆时，移除摇杆项
+            baseItems = baseItems.filter(item => item.name !== '宝联街机摇杆（附带 5p 双头杜邦线）');
         }
 
         let optional = [];
@@ -906,18 +904,18 @@
         } else if (selectedSwitch === 'kailh') {
             if (hasDirectionKeys) {
                 optional.push({ cat:'选配凯华矮轴按键', name:'凯华矮轴', qty:'20个', cost:60, supplier:'凯华' });
-                optional.push({ cat:'选配凯华矮轴按键', name:'端子 2.8 公头', qty:'50个', cost:6.5, supplier:'高斯精密科技' });
+                optional.push({ cat:'选配凯华矮轴按键', name:'端子 2.8 公+母', qty:'50组', cost:8.5, supplier:'高斯精密科技' });
             } else {
                 optional.push({ cat:'选配凯华矮轴按键', name:'凯华矮轴', qty:'15个', cost:45, supplier:'凯华' });
-                optional.push({ cat:'选配凯华矮轴按键', name:'端子 2.8 公头', qty:'50个', cost:6.5, supplier:'高斯精密科技' });
+                optional.push({ cat:'选配凯华矮轴按键', name:'端子 2.8 公+母', qty:'50组', cost:8.5, supplier:'高斯精密科技' });
             }
         } else if (selectedSwitch === 'mx') {
             if (hasDirectionKeys) {
                 optional.push({ cat:'选配 MX 轴按键', name:'MX 轴', qty:'20个', cost:7, supplier:'一键电子' });
-                optional.push({ cat:'选配 MX 轴按键', name:'端子 2.8 公头', qty:'50个', cost:6.5, supplier:'高斯精密科技' });
+                optional.push({ cat:'选配 MX 轴按键', name:'端子 2.8 公+母', qty:'50组', cost:8.5, supplier:'高斯精密科技' });
             } else {
                 optional.push({ cat:'选配 MX 轴按键', name:'MX 轴', qty:'15个', cost:6, supplier:'一键电子' });
-                optional.push({ cat:'选配 MX 轴按键', name:'端子 2.8 公头', qty:'50个', cost:6.5, supplier:'高斯精密科技' });
+                optional.push({ cat:'选配 MX 轴按键', name:'端子 2.8 公+母', qty:'50组', cost:8.5, supplier:'高斯精密科技' });
             }
         }
 
@@ -1007,9 +1005,9 @@
     const funcKeyColorInput = document.getElementById('funcKeyColor');
     const actionKeyColorInput = document.getElementById('actionKeyColor');
     const unifyCheckbox = document.getElementById('unifyColors');
+    const coverScrewCheck = document.getElementById('coverScrewCheck');
     const magneticRailCheck = document.getElementById('magneticRailCheck');
     const batteryPackCheck = document.getElementById('batteryPackCheck');
-    const coverScrewCheck = document.getElementById('coverScrewCheck');
     const rightNone = document.getElementById('rightNone'), rightIndex = document.getElementById('rightIndex'), rightThumb = document.getElementById('rightThumb'), rightBoth = document.getElementById('rightBoth');
     const leftNone = document.getElementById('leftNone'), leftDirection = document.getElementById('leftDirection'), leftDirectionShift = document.getElementById('leftDirectionShift');
     const formArcade = document.getElementById('formArcade'), formMixbox = document.getElementById('formMixbox');
@@ -1036,9 +1034,9 @@
     funcKeyColorInput.addEventListener('input', (e)=>{ funcKeyColor=e.target.value; if(unifyCheckbox.checked) unifyCheckbox.checked=false; draw(); });
     actionKeyColorInput.addEventListener('input', (e)=>{ actionKeyColor=e.target.value; if(unifyCheckbox.checked) unifyCheckbox.checked=false; draw(); });
     unifyCheckbox.addEventListener('change', applyUnify);
+    coverScrewCheck.addEventListener('change', (e)=>{ coverScrew=e.target.checked; });
     magneticRailCheck.addEventListener('change', (e)=>{ magneticRail=e.target.checked; });
     batteryPackCheck.addEventListener('change', (e)=>{ batteryPack=e.target.checked; });
-    coverScrewCheck.addEventListener('change', (e)=>{ coverScrew=e.target.checked; });
     rightNone.addEventListener('change', ()=>{ rightHandMode='none'; draw(); });
     rightIndex.addEventListener('change', ()=>{ rightHandMode='index'; draw(); });
     rightThumb.addEventListener('change', ()=>{ rightHandMode='thumb'; draw(); });
