@@ -331,9 +331,9 @@
     let funcKeyColor = document.getElementById('funcKeyColor').value;
     let actionKeyColor = document.getElementById('actionKeyColor').value;
     let unifyChecked = false;
-    let coverScrew = false;      // 选配盖板螺丝
-    let magneticRail = false;    // 选配磁吸
-    let batteryPack = false;     // 选配电池仓
+    let coverScrew = false;
+    let magneticRail = false;
+    let batteryPack = false;
     let selectedSwitch = 'arcade';
 
     let wallpaperImage = null;
@@ -872,7 +872,7 @@
 
         const hasDirectionKeys = hasDirection;
         
-        // 必选物料（更新摇杆描述）
+        // 必选物料
         let baseItems = [
             { cat:'必选', name:'Hitboard Air 3D 打印套件', qty:'1套', cost:60, supplier:'自选' },
             { cat:'必选', name:'树莓派 Pico（RP2040 带焊接针脚）', qty:'1个', cost:10, supplier:'自选' },
@@ -882,7 +882,6 @@
             { cat:'必选', name:'Typec 公转母（母头带卡扣的塑料外壳）', qty:'1条', cost:5, supplier:'皓月实业' }
         ];
         if (hideJoystick) {
-            // 隐藏摇杆时，移除摇杆项
             baseItems = baseItems.filter(item => item.name !== '宝联街机摇杆（附带 5p 双头杜邦线）');
         }
 
@@ -895,12 +894,12 @@
             optional.push({ cat:'选配壁纸', name:'M2 螺帽（ 1.8mm 高）', qty:'4颗', cost:3, supplier:'固万基/以瑟' });
         }
 
-        // 按键类型
+        // 按键类型（街机按钮改为宝联 24mm，单价1元）
         if (selectedSwitch === 'arcade') {
-            const unitPrice = 1.88;
+            const unitPrice = 1;   // 单价1元
             const qty = hasDirectionKeys ? 20 : 15;
-            const cost = Math.round(unitPrice * qty * 10) / 10;
-            optional.push({ cat:'选配街机按键', name:'精品仿三和水晶', qty: qty + '个', cost: cost, supplier:'华宇动漫三和清水' });
+            const cost = unitPrice * qty;  // 15或20元
+            optional.push({ cat:'选配街机按键', name:'宝联 24mm 街机按钮', qty: qty + '个', cost: cost, supplier:'宝联' });
         } else if (selectedSwitch === 'kailh') {
             if (hasDirectionKeys) {
                 optional.push({ cat:'选配凯华矮轴按键', name:'凯华矮轴', qty:'20个', cost:60, supplier:'凯华' });
