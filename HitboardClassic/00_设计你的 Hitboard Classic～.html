@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hitboard Creator for Classic</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.3.2/color-thief.umd.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; transition: background-color 0.2s, color 0.2s; }
+        .editor-container { max-width: 1400px; width: 100%; border-radius: 32px; overflow: hidden; display: flex; flex-direction: row; backdrop-filter: blur(2px); transition: background-color 0.2s, border-color 0.2s, box-shadow 0.2s; position: relative; }
+        .preview-area { flex: 1.2; padding: 16px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-right-width: 1px; border-right-style: solid; transition: background-color 0.2s, border-color 0.2s; }
+        .main-title { font-size: 2.16rem; font-weight: 500; margin-bottom: 16px; letter-spacing: -0.02em; text-align: center; width: 100%; transition: color 0.2s, border-color 0.2s; }
+        .editable-name { cursor: pointer; border-bottom-width: 1px; border-bottom-style: dashed; display: inline-block; min-width: 2em; text-align: center; transition: border-color 0.2s, background-color 0.2s; }
+        .editable-name:hover { background-color: #e0e7ff; }
+        .canvas-wrapper { width: 100%; max-width: 972px; background: #ffffff; border-radius: 33px; box-shadow: 0 4px 16px rgba(0,0,0,0.02); padding: 12px 8px 8px 8px; transition: background-color 0.2s, box-shadow 0.2s; }
+        .product-canvas-container { position: relative; width: 100%; background: #ffffff; border-radius: 23px; overflow: hidden; border-width: 1px; border-style: solid; cursor: grab; transition: border-color 0.2s; }
+        .product-canvas-container:active { cursor: grabbing; }
+        canvas#productCanvas { display: block; width: 100%; height: auto; pointer-events: auto; background: #ffffff; }
+        .hint-text { margin-top: 12px; font-size: 0.75rem; display: flex; gap: 20px; justify-content: center; padding: 4px 16px; border-radius: 40px; transition: background-color 0.2s, color 0.2s; }
+        .hint-text span { display: flex; align-items: center; gap: 4px; }
+        .control-panel { width: 360px; padding: 32px 24px; overflow-y: auto; max-height: 800px; transition: background-color 0.2s, color 0.2s, border-color 0.2s; }
+        .control-panel h2 { font-size: 1.5rem; font-weight: 500; margin-bottom: 28px; transition: color 0.2s; }
+        .option-group { margin-bottom: 32px; border-bottom-width: 1px; border-bottom-style: solid; padding-bottom: 24px; transition: border-color 0.2s; }
+        .option-group.no-bottom-border { border-bottom: none; }
+        .option-group:last-of-type { border-bottom: none; }
+        .option-group h3 { font-size: 1rem; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 20px; font-weight: 450; transition: color 0.2s; }
+        .color-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+        .color-label { font-size: 0.95rem; width: 100px; transition: color 0.2s; }
+        input[type="color"] { width: 70px; height: 42px; border-width: 2px; border-style: solid; border-radius: 12px; background: transparent; cursor: pointer; padding: 2px; transition: border-color 0.2s; }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 10px; }
+        .checkbox-row { display: flex; align-items: center; gap: 8px; margin: 16px 0 10px; font-size: 0.95rem; transition: color 0.2s; }
+        .checkbox-row input[type="checkbox"] { width: 18px; height: 18px; transition: accent-color 0.2s; }
+        .feature-checkbox { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 0.95rem; transition: color 0.2s; }
+        .feature-checkbox input { margin: 0; }
+        .radio-group { margin: 12px 0; }
+        .radio-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.95rem; }
+        .radio-row input[type="radio"] { width: 16px; height: 16px; accent-color: #4d7ca1; transition: accent-color 0.2s; }
+        .theme-pink .radio-row input[type="radio"] { accent-color: #ff7f9f; }
+        .wallpaper-upload { border-radius: 20px; padding: 16px; text-align: center; border-width: 1px; border-style: dashed; margin-top: 10px; transition: background-color 0.2s, border-color 0.2s; }
+        .button-group { display: flex; gap: 10px; justify-content: center; margin-bottom: 12px; flex-wrap: wrap; }
+        .action-btn { border: none; padding: 10px 16px; border-radius: 40px; font-size: 0.9rem; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; border-width: 1px; border-style: solid; transition: background-color 0.2s, color 0.2s, border-color 0.2s; }
+        .action-btn.small { padding: 8px 12px; font-size: 0.85rem; }
+        .file-input { display: none; }
+        .wallpaper-status { margin-top: 14px; font-size: 0.8rem; transition: color 0.2s; }
+        .palette-container { display: flex; justify-content: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+        .color-swatch { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform 0.1s; }
+        .color-swatch:hover { transform: scale(1.1); }
+        .slider-container { margin-top: 16px; }
+        .slider-label { display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 4px; transition: color 0.2s; }
+        input[type=range] { width: 100%; height: 4px; border-radius: 4px; -webkit-appearance: none; transition: background-color 0.2s; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; cursor: pointer; transition: background-color 0.2s, box-shadow 0.2s; }
+        .export-buttons { display: flex; flex-direction: column; gap: 14px; margin-top: 28px; }
+        .export-btn { border: none; padding: 16px 20px; border-radius: 40px; font-size: 1rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: space-between; border-width: 1px; border-style: solid; transition: background-color 0.2s, color 0.2s, border-color 0.2s; }
+        .footer-note { margin-top: 30px; font-size: 0.7rem; text-align: center; border-top-width: 1px; border-top-style: solid; padding-top: 18px; transition: color 0.2s, border-color 0.2s; }
+        .designer-credit { margin-top: 16px; font-size: 0.8rem; opacity: 0.7; text-align: center; transition: color 0.2s; }
+        #guideOptionGroup { display: none; }
+        #hideJoystickContainer { margin-top: 8px; }
+        body { background: #f5f7fa; }
+        .editor-container { background: #ffffff; box-shadow: 0 20px 40px -12px rgba(0,0,0,0.15); border: 1px solid rgba(224, 230, 238, 0.6); }
+        .preview-area { background: #fafcff; border-right-color: #e8ecf2; }
+        .main-title { color: #1e2b3c; }
+        .editable-name { border-bottom-color: #1e2b3c; }
+        .canvas-wrapper { background: #ffffff; box-shadow: 0 4px 16px rgba(0,0,0,0.02); }
+        .product-canvas-container { border-color: #eef2f6; }
+        .hint-text { background: #f2f6fb; color: #6b7b8f; }
+        .control-panel { background: #1e2b3c; color: #eef4fa; }
+        .control-panel h2 { color: white; }
+        .option-group { border-bottom-color: #304357; }
+        .option-group h3 { color: #8fa5c0; }
+        .color-label { color: #d3e0f0; }
+        input[type="color"] { border-color: #3c5068; }
+        .checkbox-row { color: #b0c5dd; }
+        .feature-checkbox { color: #b0c5dd; }
+        .radio-row { color: #b0c5dd; }
+        .wallpaper-upload { background: #253544; border-color: #5d7390; }
+        .action-btn { background: #2e4057; color: white; border-color: #4d627c; }
+        .action-btn:hover { background: #3e5670; }
+        .wallpaper-status { color: #a6bbd4; }
+        .slider-label { color: #b0c5dd; }
+        input[type=range] { background: #304357; }
+        input[type=range]::-webkit-slider-thumb { background: white; box-shadow: 0 2px 6px black; }
+        .export-btn { background: #2f5778; color: white; border-color: #41729f; }
+        .export-btn:hover { background: #3a6a91; }
+        .export-btn.secondary { background: #2d3e54; border-color: #4c607b; }
+        .export-btn.secondary:hover { background: #3c506a; }
+        .footer-note { color: #627a99; border-top-color: #2f4259; }
+        .designer-credit { color: #a0b2c4; }
+        body.theme-pink { background: #ffe4ec; }
+        .theme-pink .editor-container { background: #ffffff; box-shadow: 0 20px 40px -12px rgba(255, 120, 160, 0.3); border: 1px solid #ffc0d0; }
+        .theme-pink .preview-area { background: #fafcff; border-right-color: #e8ecf2; }
+        .theme-pink .main-title { color: #1e2b3c; }
+        .theme-pink .editable-name { border-bottom-color: #1e2b3c; }
+        .theme-pink .editable-name:hover { background-color: #e0e7ff; }
+        .theme-pink .canvas-wrapper { background: #ffffff; box-shadow: 0 4px 16px rgba(190, 140, 160, 0.1); }
+        .theme-pink .product-canvas-container { border-color: #f0d0dd; }
+        .theme-pink .hint-text { background: #ffeef4; color: #a87b8b; }
+        .theme-pink .control-panel { background: #ffa5b9; color: #ffffff; }
+        .theme-pink .control-panel h2 { color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .theme-pink .option-group { border-bottom-color: #ffd0dd; }
+        .theme-pink .option-group h3 { color: #fff0f5; }
+        .theme-pink .color-label { color: #ffffff; }
+        .theme-pink input[type="color"] { border-color: #ff99b0; }
+        .theme-pink .checkbox-row { color: #ffffff; }
+        .theme-pink .feature-checkbox { color: #ffffff; }
+        .theme-pink .radio-row { color: #ffffff; }
+        .theme-pink .wallpaper-upload { background: #ffe0e8; border-color: #ffb0c2; }
+        .theme-pink .action-btn { background: #ff7f9f; color: #ffffff; border-color: #ffbfcf; }
+        .theme-pink .action-btn:hover { background: #ff6b8f; }
+        .theme-pink .wallpaper-status { color: #4a2a36; }
+        .theme-pink .slider-label { color: #ffffff; }
+        .theme-pink input[type=range] { background: #ffd0dd; }
+        .theme-pink input[type=range]::-webkit-slider-thumb { background: #ffffff; box-shadow: 0 2px 6px rgba(255, 80, 120, 0.5); }
+        .theme-pink .export-btn { background: #ff6b8f; color: white; border-color: #ffbfcf; }
+        .theme-pink .export-btn:hover { background: #ff4f7a; }
+        .theme-pink .export-btn.secondary { background: #ff8faa; border-color: #ffbfcf; }
+        .theme-pink .export-btn.secondary:hover { background: #ff7a9a; }
+        .theme-pink .footer-note { color: #ffffff; border-top-color: #ffd0dd; }
+        .theme-pink .designer-credit { color: #d96b8a; }
+        .theme-toggle-wrapper { position: absolute; top: 20px; left: 20px; z-index: 100; }
+        .theme-toggle-btn { width: 44px; height: 44px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.3); background: #2f5778; cursor: pointer; transition: background-color 0.2s, border-color 0.2s, transform 0.1s; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .theme-pink .theme-toggle-btn { background: #ff7f9f; }
+        .theme-toggle-btn:hover { transform: scale(1.05); }
+        .theme-toggle-btn:active { transform: scale(0.95); }
+    </style>
+</head>
+<body>
+<div class="editor-container">
+    <div class="theme-toggle-wrapper">
+        <div class="theme-toggle-btn" id="themeToggle" title="切换主题"></div>
+    </div>
+    <div class="preview-area">
+        <div class="main-title" id="mainTitle">
+            设计 <span id="editableName" class="editable-name">你</span> 的 Hitboard Classic。
+        </div>
+        <div class="canvas-wrapper">
+            <div class="product-canvas-container" id="canvasContainer">
+                <canvas id="productCanvas" width="2560" height="1740"></canvas>
+            </div>
+            <div class="hint-text">
+                <span>🖱️ 拖拽平移</span>
+                <span>⚡ 滚轮缩放</span>
+                <span>🔄 双击翻转</span>
+            </div>
+        </div>
+    </div>
+    <div class="control-panel">
+        <h2>选项</h2>
+
+        <!-- 外设形态 -->
+        <div class="option-group">
+            <h3>外设形态</h3>
+            <div class="radio-group">
+                <div class="radio-row"><input type="radio" name="deviceForm" id="formArcade" value="arcade" checked><label for="formArcade">街机/Hitbox 样式</label></div>
+                <div class="radio-row"><input type="radio" name="deviceForm" id="formMixbox" value="mixbox"><label for="formMixbox">Mixbox 样式</label></div>
+            </div>
+        </div>
+
+        <!-- 左右手模式 -->
+        <div class="option-group">
+            <h3>左右手模式</h3>
+            <div class="radio-group">
+                <div class="radio-row"><input type="radio" name="joystickSide" id="joystickLeft" value="left" checked><label for="joystickLeft">左手方向，右手拳脚</label></div>
+                <div class="radio-row"><input type="radio" name="joystickSide" id="joystickRight" value="right"><label for="joystickRight">右手方向，左手拳脚</label></div>
+            </div>
+        </div>
+
+        <!-- 左手区域加键（附带封帽） -->
+        <div class="option-group no-bottom-border">
+            <h3>左手区域加键（附带封帽，随时封闭）</h3>
+            <div class="radio-group">
+                <div class="radio-row"><input type="radio" name="leftHandMode" id="leftNone" value="none" checked><label for="leftNone">不加键（纯血街机摇杆）</label></div>
+                <div class="radio-row"><input type="radio" name="leftHandMode" id="leftDirection" value="direction"><label for="leftDirection">加键：方向键</label></div>
+                <div class="radio-row"><input type="radio" name="leftHandMode" id="leftDirectionShift" value="direction_shift"><label for="leftDirectionShift">加键：方向键+Shift</label></div>
+            </div>
+            <!-- 隐藏摇杆（动态显示） -->
+            <div id="hideJoystickContainer" class="feature-checkbox">
+                <input type="checkbox" id="hideJoystickCheck">
+                <label for="hideJoystickCheck">不配置摇杆，作为纯 Hitbox/Mixbox 使用（会保留开孔，封帽封闭）</label>
+            </div>
+        </div>
+
+        <!-- 右手区域加键（附带封帽） -->
+        <div class="option-group">
+            <h3>右手区域加键（附带封帽，随时封闭）</h3>
+            <div class="radio-group" id="rightHandGroup">
+                <div class="radio-row"><input type="radio" name="rightHandKeys" id="rightNone" value="none" checked><label id="rightNoneLabel" for="rightNone">不加键</label></div>
+                <div class="radio-row"><input type="radio" name="rightHandKeys" id="rightIndex" value="index"><label id="rightIndexLabel" for="rightIndex">加 1键：食指左侧</label></div>
+                <div class="radio-row"><input type="radio" name="rightHandKeys" id="rightThumb" value="thumb"><label id="rightThumbLabel" for="rightThumb">加 1键：大拇指右侧</label></div>
+                <div class="radio-row"><input type="radio" name="rightHandKeys" id="rightBoth" value="both"><label id="rightBothLabel" for="rightBoth">加 2键：食指左侧、大拇指右侧</label></div>
+            </div>
+        </div>
+
+        <div class="option-group">
+            <h3>外观：选择颜色</h3>
+            <div class="color-row"><span class="color-label">摇杆颜色</span><input type="color" id="joystickColor" value="#2b3b4c"></div>
+            <div class="color-row"><span class="color-label">功能键颜色</span><input type="color" id="funcKeyColor" value="#2b3b4c"></div>
+            <div class="color-row"><span class="color-label">拳脚键颜色</span><input type="color" id="actionKeyColor" value="#2b3b4c"></div>
+            <div class="color-row"><span class="color-label">盖板颜色</span><input type="color" id="panelColor" value="#d9e2ec"></div>
+            <div class="color-row"><span class="color-label">外壳颜色</span><input type="color" id="caseColor" value="#3a4a5e"></div>
+            <div class="checkbox-row"><input type="checkbox" id="unifyColors"><label for="unifyColors">摇杆、功能键、拳脚键、盖板跟随外壳颜色</label></div>
+        </div>
+
+        <div class="option-group">
+            <h3>壁纸：设计你的壁纸</h3>
+            <div class="wallpaper-upload">
+                <div class="button-group"><button class="action-btn" id="uploadWallpaperBtn">📁 选择图片</button><button class="action-btn small" id="clearWallpaperBtn">🗑️ 清除</button></div>
+                <div class="checkbox-row" style="margin-top: 8px; justify-content: center;"><input type="checkbox" id="autoColorCheckbox"><label for="autoColorCheckbox">从壁纸取色</label></div>
+                <div id="paletteContainer" class="palette-container" style="display: none;"></div>
+                <input type="file" id="wallpaperFile" accept="image/*" class="file-input">
+                <div class="wallpaper-status" id="wallpaperStatus">未设置壁纸</div>
+                <div class="slider-container"><div class="slider-label"><span>缩放</span><span id="scaleValue">1.00x</span></div><input type="range" id="scaleSlider" min="0.2" max="3.0" step="0.01" value="1.0"></div>
+            </div>
+            <div style="margin-top: 16px;"><button class="export-btn" id="exportWallpaperBtn" style="width:100%;"><span>🖼️ 导出壁纸 (A4打印)</span><span style="font-size:1.2rem;">↗</span></button></div>
+        </div>
+        <div class="option-group" id="guideOptionGroup">
+            <h3>裁剪辅助线：</h3>
+            <div class="radio-group">
+                <div class="radio-row"><input type="radio" name="guideLine" id="guideNone" value="none" checked><label for="guideNone">不开启辅助线</label></div>
+                <div class="radio-row"><input type="radio" name="guideLine" id="guideOn" value="on"><label for="guideOn">开启辅助线</label></div>
+            </div>
+        </div>
+
+        <!-- 按键类型（始终显示三个选项） -->
+        <div class="option-group" id="switchTypeGroup">
+            <h3>按键类型</h3>
+            <div class="radio-group" id="switchGroup">
+                <div class="radio-row"><input type="radio" name="switchType" id="switchArcade" value="arcade" checked><label for="switchArcade">街机轴</label></div>
+                <div class="radio-row"><input type="radio" name="switchType" id="switchKailh" value="kailh"><label for="switchKailh">凯华矮轴</label></div>
+                <div class="radio-row"><input type="radio" name="switchType" id="switchMx" value="mx"><label for="switchMx">MX 轴</label></div>
+            </div>
+        </div>
+
+        <!-- 其他配置（顺序：选配盖板螺丝、选配磁吸、选配电池仓） -->
+        <div class="option-group">
+            <h3>其他配置</h3>
+            <div class="feature-checkbox"><input type="checkbox" id="coverScrewCheck"><label for="coverScrewCheck">选配盖板螺丝</label></div>
+            <div class="feature-checkbox"><input type="checkbox" id="magneticRailCheck"><label for="magneticRailCheck">选配磁吸</label></div>
+            <div class="feature-checkbox"><input type="checkbox" id="batteryPackCheck"><label for="batteryPackCheck">选配电池仓</label></div>
+        </div>
+        <div class="export-buttons"><button class="export-btn secondary" id="exportProductBtn"><span>📦 导出产品配置 (含物料清单)</span><span style="font-size:1.2rem;">↗</span></button></div>
+        <div class="footer-note">科学街霸，从输入设备做起。</div>
+    </div>
+</div>
+<div class="designer-credit">Designed by 搅局 · 双主题版</div>
+
+<script>
+(function(){
+    const SCALE = 10;
+    const outerW = 256 * SCALE;
+    const outerH = 174 * SCALE;
+    const borderThick = 2 * SCALE;
+    const outerRadius = 13.5 * SCALE;
+    const innerOffset = borderThick;
+    const innerW = outerW - 2 * borderThick;
+    const innerH = outerH - 2 * borderThick;
+    const innerRadius = (13.5 - 2) * SCALE;
+    const panelCenterX = outerW / 2;
+    const panelCenterY = outerH / 2;
+
+    // 键值定义
+    const KEY_IDS = {
+        FUNC1: 'Func1', FUNC2: 'Func2', FUNC3: 'Func3',
+        STICK: 'Stick',
+        ADD1: 'Add1', X: 'X', Y: 'Y', RB: 'RB', LB: 'LB',
+        A: 'A', B: 'B', RT: 'RT', LT: 'LT',
+        RIGHT_THUMB: 'RightThumb', ADD2: 'Add2',
+        SHIFT: 'Shift', LEFT: 'Left', DOWN: 'Down', RIGHT: 'Right', LEFT_THUMB: 'LeftThumb'
+    };
+
+    // 街机样式配置
+    const arcadeKeyConfig = {
+        [KEY_IDS.FUNC1]: { dx: -108, dy: 72, shape: 'rect', w: 20.2, h: 20.2, radius: 2.0, guideRadius: 2.0 },
+        [KEY_IDS.FUNC2]: { dx: -85, dy: 72, shape: 'rect', w: 20.2, h: 20.2, radius: 2.0, guideRadius: 2.0 },
+        [KEY_IDS.FUNC3]: { dx: -62, dy: 72, shape: 'rect', w: 20.2, h: 20.2, radius: 2.0, guideRadius: 2.0 },
+        [KEY_IDS.STICK]:  { dx: -55, dy: 10, shape: 'circle', r: 33/2, guideR: 12 },
+        [KEY_IDS.ADD1]:   { dx: 4.89, dy: 33.83, shape: 'circle', r: 26/2, guideR: 12 },
+        [KEY_IDS.X]:      { dx: 26.3, dy: 54.98, shape: 'circle', r: 26/2, guideR: 12 },
+        [KEY_IDS.Y]:      { dx: 52.47, dy: 64.89, shape: 'circle', r: 26/2, guideR: 12 },
+        [KEY_IDS.RB]:     { dx: 79.63, dy: 65.46, shape: 'circle', r: 26/2, guideR: 12 },
+        [KEY_IDS.LB]:     { dx: 106.35, dy: 60.65, shape: 'circle', r: 26/2, guideR: 12 },
+        [KEY_IDS.A]:      { dx: 32.06, dy: 28.45, shape: 'circle', r: 26/2, guideR: 12 },
+        [KEY_IDS.B]:      { dx: 57.38, dy: 38.39, shape: 'circle', r: 26/2, guideR: 12 },
+        [KEY_IDS.RT]:     { dx: 85.06, dy: 38.73, shape: 'circle', r: 26/2, guideR: 12 },
+        [KEY_IDS.LT]:     { dx: 111.77, dy: 33.83, shape: 'circle', r: 26/2, guideR: 12 },
+        [KEY_IDS.RIGHT_THUMB]: { dx: 16, dy: -16, shape: 'circle', r: 26/2, guideR: 12 },
+        [KEY_IDS.ADD2]:   { dx: 41.35, dy: -1.69, shape: 'circle', r: 26/2, guideR: 12 },
+        [KEY_IDS.SHIFT]:  { dx: -110.5, dy: 28.81, shape: 'circle', r: 26/2, guideR: 12 },
+        [KEY_IDS.LEFT]:   { dx: -85.56, dy: 47.3, shape: 'circle', r: 26/2, guideR: 12 },
+        [KEY_IDS.DOWN]:   { dx: -58.4, dy: 46.73, shape: 'circle', r: 26/2, guideR: 12 },
+        [KEY_IDS.RIGHT]:  { dx: -32.34, dy: 36.82, shape: 'circle', r: 26/2, guideR: 12 },
+        [KEY_IDS.LEFT_THUMB]: { dx: -16, dy: -16, shape: 'circle', r: 26/2, guideR: 12 }
+    };
+
+    // Mixbox 样式配置
+    const mixboxKeyConfig = {
+        [KEY_IDS.FUNC1]: { dx: -108, dy: 72, shape: 'rect', w: 20.2, h: 20.2, radius: 2.0, guideRadius: 1.6 },
+        [KEY_IDS.FUNC2]: { dx: -85, dy: 72, shape: 'rect', w: 20.2, h: 20.2, radius: 2.0, guideRadius: 1.6 },
+        [KEY_IDS.FUNC3]: { dx: -62, dy: 72, shape: 'rect', w: 20.2, h: 20.2, radius: 2.0, guideRadius: 1.6 },
+        [KEY_IDS.STICK]:  { dx: -55, dy: 10, shape: 'circle', r: 33/2, guideR: 12 },
+        [KEY_IDS.ADD1]:   { dx: 11.58, dy: 31.86, shape: 'rect', w: 20.2, h: 20.2, radius: 2.0, guideRadius: 1.6 },
+        [KEY_IDS.X]:      { dx: 31, dy: 54.86, shape: 'rect', w: 20.2, h: 20.2, radius: 2.0, guideRadius: 1.6 },
+        [KEY_IDS.Y]:      { dx: 54, dy: 63.36, shape: 'rect', w: 20.2, h: 20.2, radius: 2.0, guideRadius: 1.6 },
+        [KEY_IDS.RB]:     { dx: 77, dy: 63.36, shape: 'rect', w: 20.2, h: 20.2, radius: 2.0, guideRadius: 1.6 },
+        [KEY_IDS.LB]:     { dx: 100, dy: 61.66, shape: 'rect', w: 20.2, h: 20.2, radius: 2.0, guideRadius: 1.6 },
+        [KEY_IDS.A]:      { dx: 34.58, dy: 31.86, shape: 'rect', w: 20.2, h: 20.2, radius: 2.0, guideRadius: 1.6 },
+        [KEY_IDS.B]:      { dx: 57.58, dy: 40.36, shape: 'rect', w: 20.2, h: 20.2, radius: 2.0, guideRadius: 1.6 },
+        [KEY_IDS.RT]:     { dx: 80.58, dy: 40.36, shape: 'rect', w: 20.2, h: 20.2, radius: 2.0, guideRadius: 1.6 },
+        [KEY_IDS.LT]:     { dx: 103.92, dy: 38.66, shape: 'rect', w: 20.2, h: 20.2, radius: 2.0, guideRadius: 1.6 },
+        [KEY_IDS.RIGHT_THUMB]: { dx: 23.8, dy: -15.12, shape: 'rect', w: 44.6, h: 20.2, radius: 2.0, guideRadius: 2.0 },
+        [KEY_IDS.ADD2]:   { dx: -11.58, dy: 31.86, shape: 'rect', w: 20.2, h: 20.2, radius: 2.0, guideRadius: 1.6 },
+        [KEY_IDS.SHIFT]:  { dx: -110.59, dy: 32.92, shape: 'rect', w: 20.2, h: 20.2, radius: 2.0, guideRadius: 1.6 },
+        [KEY_IDS.LEFT]:   { dx: -83.67, dy: 47.82, shape: 'rect', w: 20.2, h: 20.2, radius: 2.0, guideRadius: 1.6, angleDynamic: true },
+        [KEY_IDS.DOWN]:   { dx: -60.94, dy: 44.28, shape: 'rect', w: 20.2, h: 20.2, radius: 2.0, guideRadius: 1.6, angleDynamic: true },
+        [KEY_IDS.RIGHT]:  { dx: -38.22, dy: 40.74, shape: 'rect', w: 20.2, h: 20.2, radius: 2.0, guideRadius: 1.6, angleDynamic: true },
+        [KEY_IDS.LEFT_THUMB]: { dx: -23.8, dy: -15.12, shape: 'rect', w: 44.6, h: 20.2, radius: 2.0, guideRadius: 2.0 }
+    };
+
+    let currentKeyConfig = arcadeKeyConfig;
+    let deviceForm = 'arcade';
+    let joystickSide = 'left';
+    let rightHandMode = 'none';
+    let leftHandMode = 'none';
+    let hideJoystick = false;
+    let guideEnabled = false;
+
+    let caseColor = document.getElementById('caseColor').value;
+    let panelColor = document.getElementById('panelColor').value;
+    let joystickColor = document.getElementById('joystickColor').value;
+    let funcKeyColor = document.getElementById('funcKeyColor').value;
+    let actionKeyColor = document.getElementById('actionKeyColor').value;
+    let unifyChecked = false;
+    let coverScrew = false;
+    let magneticRail = false;
+    let batteryPack = false;
+    let selectedSwitch = 'arcade';
+
+    let wallpaperImage = null;
+    let wallpaperScale = 1.0, wallpaperOffsetX = 0, wallpaperOffsetY = 0, wallpaperFlipX = false;
+    let isDragging = false, lastMouseX = 0, lastMouseY = 0;
+    let userName = '';
+
+    const canvas = document.getElementById('productCanvas');
+    const ctx = canvas.getContext('2d');
+    const colorThief = new ColorThief();
+
+    // Logo 尺寸：80mm 宽
+    const targetLogoWidth = 80 * SCALE;
+    const logoPosX = 11.63 * SCALE;
+    const logoPosY = 5.2 * SCALE - 15;
+    const logoSvgTemplate = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2336 463" width="2336" height="463">
+        <path fill="{color}" d="M34 67h70l4 1v135l-1 6 2-1h48l121 1V70l1-3h72v349l-1 3h-72V272l-171-1 1 2v143l-1 3H38l-4-1V67M2217 77h73v352h-73l-1-24-6 3c-32 15-69 16-102 5q-53-21-78-73-11-27-11-55v-4a116 116 0 0 1 5-37q18-54 68-80a138 138 0 0 1 123 0v2h3l-1-2V77m-127 155a88 88 0 0 0-18 63l4 16 1 3a74 74 0 0 0 21 31 82 82 0 0 0 109 2l3-2a79 79 0 0 0 25-60v-3q-1-33-24-57a89 89 0 0 0-44-22c-29-4-58 7-77 29M1628 149h3q38 1 70 21v-18h74v268h-74v-22l-6 4a135 135 0 0 1-199-87l-1-3a137 137 0 0 1 30-116l2-3h2l1-2c11-20 42-32 63-38q18-4 35-4m-63 82a81 81 0 0 0 6 112l2 2q16 14 36 19l3 1a81 81 0 0 0 95-59q8-33-9-65a88 88 0 0 0-55-38c-30-6-58 7-78 28M904 67h70v96l19-8 19-5a136 136 0 0 1 152 92l1 2q6 19 5 40v2q0 18-4 34l-1 2c-9 33-32 62-61 79-30 17-70 23-104 14q-33-10-59-34l-3-3q-22-21-32-52l-1-2a147 147 0 0 1-5-54V74q-1-9 4-7m72 161-2 2a82 82 0 0 0-20 58q2 32 25 55l2 2q23 21 54 21 37-1 61-27 23-27 21-62-3-28-21-48l-2-2a84 84 0 0 0-58-25q-36 0-60 26M647 68h61l4 1v84h108v69l-1 4H712v31c0 20 0 20 5 40l1 3q5 11 12 20l2 2c10 13 27 21 43 24l37 1h3l5 1v67l-1 4h-27a149 149 0 0 1-108-41v-2l-3-1-7-8-2-3q-23-29-30-65l-1-4-1-22-1-4V74c0-7 1-6 8-6M1410 175q46 35 54 93 3 26-4 52l-1 2a134 134 0 0 1-65 81l-3 2a133 133 0 0 1-157-25l-2-2q-24-24-33-57l-1-3q-10-41 4-80l1-3a138 138 0 0 1 100-84l3-1c36-6 75 3 104 25m-140 53-2 2a81 81 0 0 0-8 97l1 3a81 81 0 0 0 63 36h2a83 83 0 0 0 84-66q6-32-11-59a86 86 0 0 0-55-38q-43-5-74 25M1958 152h36v73h-25q-34 1-60 22a79 79 0 0 0-21 59v24l-1 20v70h-73l-1-9v-99c1-47 13-86 47-120 25-25 62-40 98-40M473 151h62l4 1v267h-74V154q1-4 8-3M520 43q13 8 19 22 4 17-5 33-9 12-23 16-17 2-31-8l-3-2v-2h-2l-3-5-2-2q-7-16-2-32l4-7 2-2c11-14 30-18 46-11"/>
+    </svg>`;
+    let cachedLogoImage = null;
+    let cachedLogoColor = null;
+    let logoNeedsRedraw = false;
+    function getLogoImage(logoColor, callback) {
+        if (cachedLogoImage && cachedLogoColor === logoColor) {
+            callback(cachedLogoImage);
+            return;
+        }
+        const svgString = logoSvgTemplate.replace('{color}', logoColor);
+        const img = new Image();
+        img.onload = () => {
+            cachedLogoImage = img;
+            cachedLogoColor = logoColor;
+            callback(img);
+            if (logoNeedsRedraw) {
+                logoNeedsRedraw = false;
+                draw();
+            }
+        };
+        img.src = 'data:image/svg+xml,' + encodeURIComponent(svgString);
+    }
+    function drawLogo(ctx, panelColor) {
+        if (!panelColor) return;
+        const darkColor = darkenColor(panelColor, -5);
+        getLogoImage(darkColor, (img) => {
+            if (img.complete && img.naturalWidth > 0) {
+                const targetW = targetLogoWidth;
+                const targetH = (463 / 2336) * targetW;
+                ctx.save();
+                ctx.globalAlpha = 0.1;
+                ctx.drawImage(img, logoPosX, outerH - logoPosY - targetH, targetW, targetH);
+                ctx.restore();
+            } else {
+                logoNeedsRedraw = true;
+            }
+        });
+    }
+
+    function mirrorX(dx) { return joystickSide === 'right' ? -dx : dx; }
+
+    function getDirectionAngle() {
+        return joystickSide === 'left' ? 10 * Math.PI/180 : -10 * Math.PI/180;
+    }
+
+    function getVisibleKeyIds() {
+        let visible = [
+            KEY_IDS.FUNC1, KEY_IDS.FUNC2, KEY_IDS.FUNC3,
+            KEY_IDS.X, KEY_IDS.Y, KEY_IDS.RB, KEY_IDS.LB,
+            KEY_IDS.A, KEY_IDS.B, KEY_IDS.RT, KEY_IDS.LT,
+            KEY_IDS.RIGHT_THUMB
+        ];
+        if (!hideJoystick) visible.push(KEY_IDS.STICK);
+        if (rightHandMode === 'index' || rightHandMode === 'both') visible.push(KEY_IDS.ADD1);
+        if (rightHandMode === 'thumb' || rightHandMode === 'both') visible.push(KEY_IDS.ADD2);
+        if (leftHandMode === 'direction') {
+            visible.push(KEY_IDS.LEFT, KEY_IDS.DOWN, KEY_IDS.RIGHT, KEY_IDS.LEFT_THUMB);
+        } else if (leftHandMode === 'direction_shift') {
+            visible.push(KEY_IDS.SHIFT, KEY_IDS.LEFT, KEY_IDS.DOWN, KEY_IDS.RIGHT, KEY_IDS.LEFT_THUMB);
+        }
+        return visible;
+    }
+
+    function drawJoystick(ctx, cx, cy, rOuter, color) {
+        const alphaOuter = 0.95;
+        const alphaInner = alphaOuter - 0.10;
+        ctx.beginPath();
+        ctx.arc(cx, cy, rOuter, 0, 2*Math.PI);
+        ctx.fillStyle = `rgba(${parseInt(color.slice(1,3),16)},${parseInt(color.slice(3,5),16)},${parseInt(color.slice(5,7),16)},${alphaOuter})`;
+        ctx.fill();
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+        const rInner = 10 * SCALE;
+        ctx.beginPath();
+        ctx.arc(cx, cy, rInner, 0, 2*Math.PI);
+        ctx.fillStyle = `rgba(${parseInt(color.slice(1,3),16)},${parseInt(color.slice(3,5),16)},${parseInt(color.slice(5,7),16)},${alphaInner})`;
+        ctx.fill();
+        ctx.stroke();
+    }
+
+    function drawRoundedRect(ctx, x, y, w, h, r, color, alpha=0.95) {
+        ctx.beginPath();
+        ctx.moveTo(x+r, y); ctx.lineTo(x+w-r, y);
+        ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+        ctx.lineTo(x+w, y+h-r);
+        ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+        ctx.lineTo(x+r, y+h);
+        ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+        ctx.lineTo(x, y+r);
+        ctx.quadraticCurveTo(x, y, x+r, y);
+        ctx.closePath();
+        ctx.fillStyle = `rgba(${parseInt(color.slice(1,3),16)},${parseInt(color.slice(3,5),16)},${parseInt(color.slice(5,7),16)},${alpha})`;
+        ctx.fill();
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+    }
+
+    function drawRotatedRoundedRect(ctx, cx, cy, w, h, r, angle, color, alpha=0.95) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(angle);
+        ctx.beginPath();
+        ctx.moveTo(-w/2 + r, -h/2);
+        ctx.lineTo( w/2 - r, -h/2);
+        ctx.quadraticCurveTo( w/2, -h/2,  w/2, -h/2 + r);
+        ctx.lineTo( w/2,  h/2 - r);
+        ctx.quadraticCurveTo( w/2,  h/2,  w/2 - r,  h/2);
+        ctx.lineTo(-w/2 + r,  h/2);
+        ctx.quadraticCurveTo(-w/2,  h/2, -w/2,  h/2 - r);
+        ctx.lineTo(-w/2, -h/2 + r);
+        ctx.quadraticCurveTo(-w/2, -h/2, -w/2 + r, -h/2);
+        ctx.closePath();
+        ctx.fillStyle = `rgba(${parseInt(color.slice(1,3),16)},${parseInt(color.slice(3,5),16)},${parseInt(color.slice(5,7),16)},${alpha})`;
+        ctx.fill();
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    function drawCircle(ctx, cx, cy, r, color, alpha=0.95) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, 2*Math.PI);
+        ctx.fillStyle = `rgba(${parseInt(color.slice(1,3),16)},${parseInt(color.slice(3,5),16)},${parseInt(color.slice(5,7),16)},${alpha})`;
+        ctx.fill();
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+    }
+
+    function darkenColor(hex, percent) {
+        let r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+        r = Math.max(0, Math.min(255, r + percent * 2.55));
+        g = Math.max(0, Math.min(255, g + percent * 2.55));
+        b = Math.max(0, Math.min(255, b + percent * 2.55));
+        return `#${(r < 16 ? '0' : '') + r.toString(16)}${(g < 16 ? '0' : '') + g.toString(16)}${(b < 16 ? '0' : '') + b.toString(16)}`;
+    }
+
+    function updateWallpaperCover() {
+        if (!wallpaperImage) return;
+        const imgW = wallpaperImage.naturalWidth;
+        const imgH = wallpaperImage.naturalHeight;
+        const targetW = innerW;
+        const targetH = innerH;
+        const imgRatio = imgW / imgH;
+        const targetRatio = targetW / targetH;
+        let scale;
+        if (imgRatio > targetRatio) {
+            scale = targetH / imgH;
+        } else {
+            scale = targetW / imgW;
+        }
+        wallpaperScale = scale;
+        wallpaperOffsetX = 0;
+        wallpaperOffsetY = 0;
+        scaleSlider.value = scale;
+        scaleSpan.innerText = scale.toFixed(2) + 'x';
+        draw();
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.beginPath();
+        ctx.moveTo(outerRadius, 0); ctx.lineTo(outerW-outerRadius,0);
+        ctx.quadraticCurveTo(outerW,0,outerW,outerRadius);
+        ctx.lineTo(outerW,outerH-outerRadius);
+        ctx.quadraticCurveTo(outerW,outerH,outerW-outerRadius,outerH);
+        ctx.lineTo(outerRadius,outerH);
+        ctx.quadraticCurveTo(0,outerH,0,outerH-outerRadius);
+        ctx.lineTo(0,outerRadius);
+        ctx.quadraticCurveTo(0,0,outerRadius,0);
+        ctx.closePath();
+        ctx.fillStyle = `rgba(${parseInt(caseColor.slice(1,3),16)},${parseInt(caseColor.slice(3,5),16)},${parseInt(caseColor.slice(5,7),16)},0.9)`;
+        ctx.fill();
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(innerOffset+innerRadius, innerOffset);
+        ctx.lineTo(innerOffset+innerW-innerRadius, innerOffset);
+        ctx.quadraticCurveTo(innerOffset+innerW, innerOffset, innerOffset+innerW, innerOffset+innerRadius);
+        ctx.lineTo(innerOffset+innerW, innerOffset+innerH-innerRadius);
+        ctx.quadraticCurveTo(innerOffset+innerW, innerOffset+innerH, innerOffset+innerW-innerRadius, innerOffset+innerH);
+        ctx.lineTo(innerOffset+innerRadius, innerOffset+innerH);
+        ctx.quadraticCurveTo(innerOffset, innerOffset+innerH, innerOffset, innerOffset+innerH-innerRadius);
+        ctx.lineTo(innerOffset, innerOffset+innerRadius);
+        ctx.quadraticCurveTo(innerOffset, innerOffset, innerOffset+innerRadius, innerOffset);
+        ctx.closePath();
+        ctx.clip();
+        ctx.fillStyle = `rgba(${parseInt(panelColor.slice(1,3),16)},${parseInt(panelColor.slice(3,5),16)},${parseInt(panelColor.slice(5,7),16)},0.85)`;
+        ctx.fillRect(innerOffset, innerOffset, innerW, innerH);
+        if (wallpaperImage) {
+            const imgW = wallpaperImage.naturalWidth, imgH = wallpaperImage.naturalHeight;
+            const centerX = innerOffset + innerW/2, centerY = innerOffset + innerH/2;
+            ctx.save();
+            ctx.translate(centerX + wallpaperOffsetX, centerY + wallpaperOffsetY);
+            ctx.scale(wallpaperFlipX ? -wallpaperScale : wallpaperScale, wallpaperScale);
+            ctx.drawImage(wallpaperImage, -imgW/2, -imgH/2, imgW, imgH);
+            ctx.restore();
+        } else {
+            drawLogo(ctx, panelColor);
+        }
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.moveTo(innerOffset+innerRadius, innerOffset);
+        ctx.lineTo(innerOffset+innerW-innerRadius, innerOffset);
+        ctx.quadraticCurveTo(innerOffset+innerW, innerOffset, innerOffset+innerW, innerOffset+innerRadius);
+        ctx.lineTo(innerOffset+innerW, innerOffset+innerH-innerRadius);
+        ctx.quadraticCurveTo(innerOffset+innerW, innerOffset+innerH, innerOffset+innerW-innerRadius, innerOffset+innerH);
+        ctx.lineTo(innerOffset+innerRadius, innerOffset+innerH);
+        ctx.quadraticCurveTo(innerOffset, innerOffset+innerH, innerOffset, innerOffset+innerH-innerRadius);
+        ctx.lineTo(innerOffset, innerOffset+innerRadius);
+        ctx.quadraticCurveTo(innerOffset, innerOffset, innerOffset+innerRadius, innerOffset);
+        ctx.closePath();
+        ctx.strokeStyle = '#333';
+        ctx.stroke();
+
+        const visibleIds = getVisibleKeyIds();
+        const dynamicAngle = getDirectionAngle();
+        for (let keyId of visibleIds) {
+            const cfg = currentKeyConfig[keyId];
+            if (!cfg) continue;
+            let cx = panelCenterX + mirrorX(cfg.dx) * SCALE;
+            let cy = panelCenterY - cfg.dy * SCALE;
+            let color;
+            if (keyId.startsWith('Func')) color = funcKeyColor;
+            else if (keyId === KEY_IDS.STICK) color = joystickColor;
+            else color = actionKeyColor;
+            ctx.save();
+            ctx.shadowColor = 'rgba(0,0,0,0.2)';
+            ctx.shadowBlur = 12;
+            if (cfg.shape === 'circle') {
+                if (keyId === KEY_IDS.STICK) {
+                    drawJoystick(ctx, cx, cy, cfg.r * SCALE, color);
+                } else {
+                    drawCircle(ctx, cx, cy, cfg.r * SCALE, color, 0.95);
+                }
+            } else if (cfg.shape === 'rect') {
+                const w = cfg.w * SCALE;
+                const h = cfg.h * SCALE;
+                const r = cfg.radius * SCALE;
+                if (cfg.angleDynamic) {
+                    drawRotatedRoundedRect(ctx, cx, cy, w, h, r, dynamicAngle, color, 0.95);
+                } else if (cfg.angle !== undefined) {
+                    drawRotatedRoundedRect(ctx, cx, cy, w, h, r, cfg.angle, color, 0.95);
+                } else {
+                    drawRoundedRect(ctx, cx - w/2, cy - h/2, w, h, r, color, 0.95);
+                }
+            }
+            ctx.restore();
+        }
+    }
+
+    function applyUnify() {
+        if (unifyCheckbox.checked) {
+            panelColor = caseColor;
+            funcKeyColor = caseColor;
+            actionKeyColor = caseColor;
+            joystickColor = caseColor;
+            panelInput.value = caseColor;
+            funcKeyColorInput.value = caseColor;
+            actionKeyColorInput.value = caseColor;
+            joystickColorInput.value = caseColor;
+        }
+        draw();
+    }
+
+    function updatePalette() {
+        if (!wallpaperImage) { paletteContainer.style.display = 'none'; return; }
+        try {
+            const palette = colorThief.getPalette(wallpaperImage, 4);
+            paletteContainer.innerHTML = '';
+            palette.forEach(color => {
+                const swatch = document.createElement('div');
+                swatch.className = 'color-swatch';
+                swatch.style.backgroundColor = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+                swatch.addEventListener('click', () => {
+                    const hex = `#${((1 << 24) + (color[0] << 16) + (color[1] << 8) + color[2]).toString(16).slice(1)}`;
+                    caseInput.value = hex; caseColor = hex;
+                    if (unifyCheckbox.checked) applyUnify();
+                    else draw();
+                });
+                paletteContainer.appendChild(swatch);
+            });
+            paletteContainer.style.display = 'flex';
+        } catch(e) { console.error('调色板提取失败', e); paletteContainer.style.display = 'none'; }
+    }
+
+    function applyWallpaperColor() {
+        if (!wallpaperImage) return;
+        try {
+            const [r,g,b] = colorThief.getColor(wallpaperImage);
+            const hex = `#${((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1)}`;
+            caseInput.value = hex; caseColor = hex;
+            if (unifyCheckbox.checked) {
+                panelColor = caseColor;
+                funcKeyColor = caseColor;
+                actionKeyColor = caseColor;
+                joystickColor = caseColor;
+                panelInput.value = caseColor;
+                funcKeyColorInput.value = caseColor;
+                actionKeyColorInput.value = caseColor;
+                joystickColorInput.value = caseColor;
+            }
+            draw();
+        } catch(e) { console.error('取色失败', e); }
+    }
+
+    function updateKeyConfig() {
+        currentKeyConfig = (deviceForm === 'arcade') ? arcadeKeyConfig : mixboxKeyConfig;
+        const isArcade = (deviceForm === 'arcade');
+        const indexLabel = document.getElementById('rightIndexLabel');
+        const thumbLabel = document.getElementById('rightThumbLabel');
+        const bothLabel = document.getElementById('rightBothLabel');
+        if (isArcade) {
+            indexLabel.textContent = '加 1键：食指左侧';
+            thumbLabel.textContent = '加 1键：大拇指右侧';
+            bothLabel.textContent = '加 2键：食指左侧、大拇指右侧';
+        } else {
+            indexLabel.textContent = '加 1键：H 键';
+            thumbLabel.textContent = '加 1键：F 键';
+            bothLabel.textContent = '加 2键：H 键、F 键';
+        }
+    }
+
+    function updateHideJoystickVisibility() {
+        const container = document.getElementById('hideJoystickContainer');
+        if (leftHandMode === 'direction' || leftHandMode === 'direction_shift') {
+            container.style.display = 'flex';
+        } else {
+            container.style.display = 'none';
+            if (hideJoystick) {
+                hideJoystick = false;
+                document.getElementById('hideJoystickCheck').checked = false;
+                draw();
+            }
+        }
+    }
+
+    function exportWallpaper() {
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = innerW;
+        tempCanvas.height = innerH;
+        const tCtx = tempCanvas.getContext('2d');
+
+        tCtx.fillStyle = `rgba(${parseInt(panelColor.slice(1,3),16)},${parseInt(panelColor.slice(3,5),16)},${parseInt(panelColor.slice(5,7),16)},0.85)`;
+        tCtx.fillRect(0, 0, innerW, innerH);
+        if (wallpaperImage) {
+            const imgW = wallpaperImage.naturalWidth, imgH = wallpaperImage.naturalHeight;
+            const centerX = innerW/2, centerY = innerH/2;
+            tCtx.save();
+            tCtx.translate(centerX + wallpaperOffsetX, centerY + wallpaperOffsetY);
+            tCtx.scale(wallpaperFlipX ? -wallpaperScale : wallpaperScale, wallpaperScale);
+            tCtx.drawImage(wallpaperImage, -imgW/2, -imgH/2, imgW, imgH);
+            tCtx.restore();
+        }
+
+        if (guideEnabled) {
+            tCtx.save();
+            tCtx.strokeStyle = '#000000';
+            tCtx.lineWidth = 2;
+            const visibleIds = getVisibleKeyIds();
+            const dynamicAngle = getDirectionAngle();
+            for (let keyId of visibleIds) {
+                const cfg = currentKeyConfig[keyId];
+                if (!cfg) continue;
+                let relX = panelCenterX + mirrorX(cfg.dx) * SCALE - innerOffset;
+                let relY = panelCenterY - cfg.dy * SCALE - innerOffset;
+                if (cfg.shape === 'circle') {
+                    const radius = (cfg.guideR !== undefined) ? cfg.guideR * SCALE : 12 * SCALE;
+                    tCtx.beginPath();
+                    tCtx.arc(relX, relY, radius, 0, 2*Math.PI);
+                    tCtx.stroke();
+                } else if (cfg.shape === 'rect') {
+                    const w = cfg.w * SCALE;
+                    const h = cfg.h * SCALE;
+                    const r = (cfg.guideRadius !== undefined) ? cfg.guideRadius * SCALE : 1.6 * SCALE;
+                    if (cfg.angleDynamic) {
+                        tCtx.save();
+                        tCtx.translate(relX, relY);
+                        tCtx.rotate(dynamicAngle);
+                        tCtx.beginPath();
+                        tCtx.moveTo(-w/2 + r, -h/2);
+                        tCtx.lineTo( w/2 - r, -h/2);
+                        tCtx.quadraticCurveTo( w/2, -h/2,  w/2, -h/2 + r);
+                        tCtx.lineTo( w/2,  h/2 - r);
+                        tCtx.quadraticCurveTo( w/2,  h/2,  w/2 - r,  h/2);
+                        tCtx.lineTo(-w/2 + r,  h/2);
+                        tCtx.quadraticCurveTo(-w/2,  h/2, -w/2,  h/2 - r);
+                        tCtx.lineTo(-w/2, -h/2 + r);
+                        tCtx.quadraticCurveTo(-w/2, -h/2, -w/2 + r, -h/2);
+                        tCtx.closePath();
+                        tCtx.stroke();
+                        tCtx.restore();
+                    } else if (cfg.angle !== undefined) {
+                        tCtx.save();
+                        tCtx.translate(relX, relY);
+                        tCtx.rotate(cfg.angle);
+                        tCtx.beginPath();
+                        tCtx.moveTo(-w/2 + r, -h/2);
+                        tCtx.lineTo( w/2 - r, -h/2);
+                        tCtx.quadraticCurveTo( w/2, -h/2,  w/2, -h/2 + r);
+                        tCtx.lineTo( w/2,  h/2 - r);
+                        tCtx.quadraticCurveTo( w/2,  h/2,  w/2 - r,  h/2);
+                        tCtx.lineTo(-w/2 + r,  h/2);
+                        tCtx.quadraticCurveTo(-w/2,  h/2, -w/2,  h/2 - r);
+                        tCtx.lineTo(-w/2, -h/2 + r);
+                        tCtx.quadraticCurveTo(-w/2, -h/2, -w/2 + r, -h/2);
+                        tCtx.closePath();
+                        tCtx.stroke();
+                        tCtx.restore();
+                    } else {
+                        tCtx.beginPath();
+                        tCtx.moveTo(relX - w/2 + r, relY - h/2);
+                        tCtx.lineTo(relX - w/2 + w - r, relY - h/2);
+                        tCtx.quadraticCurveTo(relX - w/2 + w, relY - h/2, relX - w/2 + w, relY - h/2 + r);
+                        tCtx.lineTo(relX - w/2 + w, relY - h/2 + h - r);
+                        tCtx.quadraticCurveTo(relX - w/2 + w, relY - h/2 + h, relX - w/2 + w - r, relY - h/2 + h);
+                        tCtx.lineTo(relX - w/2 + r, relY - h/2 + h);
+                        tCtx.quadraticCurveTo(relX - w/2, relY - h/2 + h, relX - w/2, relY - h/2 + h - r);
+                        tCtx.lineTo(relX - w/2, relY - h/2 + r);
+                        tCtx.quadraticCurveTo(relX - w/2, relY - h/2, relX - w/2 + r, relY - h/2);
+                        tCtx.closePath();
+                        tCtx.stroke();
+                    }
+                }
+                tCtx.beginPath();
+                tCtx.moveTo(relX - 6, relY); tCtx.lineTo(relX + 6, relY);
+                tCtx.moveTo(relX, relY - 6); tCtx.lineTo(relX, relY + 6);
+                tCtx.stroke();
+            }
+            tCtx.restore();
+        }
+
+        const finalCanvas = document.createElement('canvas');
+        finalCanvas.width = innerW;
+        finalCanvas.height = innerH;
+        const fCtx = finalCanvas.getContext('2d');
+        fCtx.beginPath();
+        fCtx.moveTo(innerRadius, 0);
+        fCtx.lineTo(innerW - innerRadius, 0);
+        fCtx.quadraticCurveTo(innerW, 0, innerW, innerRadius);
+        fCtx.lineTo(innerW, innerH - innerRadius);
+        fCtx.quadraticCurveTo(innerW, innerH, innerW - innerRadius, innerH);
+        fCtx.lineTo(innerRadius, innerH);
+        fCtx.quadraticCurveTo(0, innerH, 0, innerH - innerRadius);
+        fCtx.lineTo(0, innerRadius);
+        fCtx.quadraticCurveTo(0, 0, innerRadius, 0);
+        fCtx.closePath();
+        fCtx.clip();
+        fCtx.drawImage(tempCanvas, 0, 0);
+        fCtx.beginPath();
+        fCtx.moveTo(innerRadius, 0);
+        fCtx.lineTo(innerW - innerRadius, 0);
+        fCtx.quadraticCurveTo(innerW, 0, innerW, innerRadius);
+        fCtx.lineTo(innerW, innerH - innerRadius);
+        fCtx.quadraticCurveTo(innerW, innerH, innerW - innerRadius, innerH);
+        fCtx.lineTo(innerRadius, innerH);
+        fCtx.quadraticCurveTo(0, innerH, 0, innerH - innerRadius);
+        fCtx.lineTo(0, innerRadius);
+        fCtx.quadraticCurveTo(0, 0, innerRadius, 0);
+        fCtx.closePath();
+        fCtx.strokeStyle = '#000000';
+        fCtx.lineWidth = 4;
+        fCtx.stroke();
+
+        const exportCanvas = document.createElement('canvas');
+        exportCanvas.width = 2970; exportCanvas.height = 2100;
+        const eCtx = exportCanvas.getContext('2d');
+        eCtx.fillStyle = '#ffffff'; eCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+        const targetW = innerW;
+        const targetH = innerH;
+        const left = (exportCanvas.width - targetW) / 2;
+        const top = (exportCanvas.height - targetH) / 2;
+        eCtx.drawImage(finalCanvas, 0, 0, targetW, targetH, left, top, targetW, targetH);
+        const link = document.createElement('a');
+        link.download = 'Hitboard_Classic_Wallpaper.png';
+        link.href = exportCanvas.toDataURL('image/png');
+        link.click();
+    }
+
+    function exportProductConfig() {
+        const originalGuideEnabled = guideEnabled;
+        if (originalGuideEnabled) {
+            guideEnabled = false;
+            draw();
+        }
+
+        const exportCanvas = document.createElement('canvas');
+        exportCanvas.width = 2970; exportCanvas.height = 2100;
+        const eCtx = exportCanvas.getContext('2d');
+        eCtx.fillStyle = '#ffffff'; eCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+
+        const prodW = outerW;
+        const prodH = outerH;
+        const prodX = (exportCanvas.width - prodW) / 2;
+        const prodY = (exportCanvas.height - prodH) / 2;
+        eCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height, prodX, prodY, prodW, prodH);
+
+        const formName = deviceForm === 'arcade' ? '街机/Hitbox 样式' : 'Mixbox 样式';
+        const handName = joystickSide === 'left' ? '左手方向' : '右手方向';
+        let leftModeName = '';
+        const hasDirection = (leftHandMode === 'direction' || leftHandMode === 'direction_shift');
+        if (!hasDirection) leftModeName = '纯血';
+        else if (hasDirection && !hideJoystick) leftModeName = '混合';
+        else leftModeName = '现代';
+        const titleSuffix = `（${formName} ｜ ${handName} ｜ ${leftModeName}）`;
+        const baseTitle = userName ? `${userName} 的 Hitboard Classic。` : '你的 Hitboard Classic。';
+        const title = baseTitle + titleSuffix;
+        eCtx.font = 'bold 72px "Microsoft YaHei"';
+        eCtx.fillStyle = '#1e2b3c';
+        eCtx.textAlign = 'center';
+        eCtx.fillText(title, exportCanvas.width / 2, prodY - 60);
+
+        const hasDirectionKeys = hasDirection;
+        
+        // 必选物料：根据是否选择壁纸决定使用哪个3D打印套件
+        let baseItems = [
+            { cat:'必选', name: wallpaperImage ? 'Hitboard Air 3D 打印套件（不打印盖板）' : 'Hitboard Air 3D 打印套件', qty:'1套', cost: wallpaperImage ? 40 : 60, supplier:'自选' },
+            { cat:'必选', name:'树莓派 Pico（RP2040 带焊接针脚）', qty:'1个', cost:10, supplier:'自选' },
+            { cat:'必选', name:'宝联街机摇杆（附带 5p 双头杜邦线）', qty:'1个', cost:39, supplier:'宝联' },
+            { cat:'必选', name:'单根杜邦线（杜邦转 2.8 端子）', qty:'20条', cost:8, supplier:'华宇动漫三和清水' },
+            { cat:'必选', name:'HITBOX 按钮数据线树莓派（1 串 10）', qty:'2条', cost:5.4, supplier:'华宇动漫三和清水' },
+            { cat:'必选', name:'Typec 公转母（母头带卡扣的塑料外壳）', qty:'1条', cost:5, supplier:'皓月实业' }
+        ];
+        if (hideJoystick) {
+            baseItems = baseItems.filter(item => !item.name.includes('宝联街机摇杆'));
+        }
+
+        let optional = [];
+
+        // 选配壁纸：如果选择了壁纸，添加合并后的亚克力面板和盖板项
+        if (wallpaperImage) {
+            optional.push({ cat:'选配壁纸', name:'亚克力面板（4mm 厚）、亚克力盖板（2mm 厚）', qty:'各1张', cost:16, supplier:'德耀' });
+            optional.push({ cat:'选配壁纸', name:'A4 壁纸打印（建议选择磨砂质感）', qty:'1张', cost:4, supplier:'E彩冲印' });
+            optional.push({ cat:'选配壁纸', name:'M2*12 螺丝（2mm 直径，12mm 长）', qty:'4颗', cost:3, supplier:'固万基/以瑟' });
+            optional.push({ cat:'选配壁纸', name:'M2 螺帽（ 1.8mm 高）', qty:'4颗', cost:3, supplier:'固万基/以瑟' });
+        }
+
+        // 按键类型（街机按钮：宝联 24mm 街机按钮（可自己剪短弹簧改轻克力），单价1元）
+        if (selectedSwitch === 'arcade') {
+            const unitPrice = 1;
+            const qty = hasDirectionKeys ? 20 : 15;
+            const cost = unitPrice * qty;
+            optional.push({ cat:'选配街机按键', name:'宝联 24mm 街机按钮（可自己剪短弹簧改轻克力）', qty: qty + '个', cost: cost, supplier:'宝联' });
+        } else if (selectedSwitch === 'kailh') {
+            if (hasDirectionKeys) {
+                optional.push({ cat:'选配凯华矮轴按键', name:'凯华矮轴', qty:'20个', cost:60, supplier:'凯华' });
+                optional.push({ cat:'选配凯华矮轴按键', name:'端子 2.8 公+母', qty:'50组', cost:8.5, supplier:'高斯精密科技' });
+            } else {
+                optional.push({ cat:'选配凯华矮轴按键', name:'凯华矮轴', qty:'15个', cost:45, supplier:'凯华' });
+                optional.push({ cat:'选配凯华矮轴按键', name:'端子 2.8 公+母', qty:'50组', cost:8.5, supplier:'高斯精密科技' });
+            }
+        } else if (selectedSwitch === 'mx') {
+            if (hasDirectionKeys) {
+                optional.push({ cat:'选配 MX 轴按键', name:'MX 轴', qty:'20个', cost:7, supplier:'一键电子' });
+                optional.push({ cat:'选配 MX 轴按键', name:'端子 2.8 公+母', qty:'50组', cost:8.5, supplier:'高斯精密科技' });
+            } else {
+                optional.push({ cat:'选配 MX 轴按键', name:'MX 轴', qty:'15个', cost:6, supplier:'一键电子' });
+                optional.push({ cat:'选配 MX 轴按键', name:'端子 2.8 公+母', qty:'50组', cost:8.5, supplier:'高斯精密科技' });
+            }
+        }
+
+        // 选配磁吸
+        if (magneticRail) {
+            optional.push({ cat:'选配磁吸', name:'F15x5x5mm 磁铁（装在外壳上）', qty:'20颗', cost:3, supplier:'磁工旗舰店' });
+            optional.push({ cat:'选配磁吸', name:'F15x5x2mm 磁铁（装在盖板上）', qty:'4颗', cost:1, supplier:'磁工旗舰店' });
+        }
+        // 选配电池仓
+        if (batteryPack) {
+            optional.push({ cat:'选配电池仓', name:'电池弹簧 （5 号单极片（12*12））', qty:'1组', cost:1, supplier:'晋荣达弹簧' });
+        }
+        // 选配盖板螺丝：如果壁纸已包含螺丝螺帽，则不重复添加
+        const wallpaperHasScrew = wallpaperImage ? true : false;
+        if (coverScrew && !wallpaperHasScrew) {
+            optional.push({ cat:'选配盖板螺丝', name:'M2*12 螺丝（2mm 直径，12mm 长）', qty:'4颗', cost:3, supplier:'固万基/以瑟' });
+            optional.push({ cat:'选配盖板螺丝', name:'M2 螺帽（ 1.8mm 高）', qty:'4颗', cost:3, supplier:'固万基/以瑟' });
+        }
+
+        // 合并去重（基于名称）
+        const itemMap = new Map();
+        const allTemp = [...baseItems, ...optional];
+        allTemp.forEach(item => {
+            const key = item.name;
+            if (!itemMap.has(key)) {
+                itemMap.set(key, item);
+            }
+        });
+        const allItems = Array.from(itemMap.values());
+
+        const colW = [200, 520, 120, 150, 380];
+        const startX = prodX;
+        let currentY = prodY + prodH + 80 - 500;
+
+        eCtx.font = 'bold 34px "Microsoft YaHei"';
+        eCtx.fillStyle = '#000000';
+        eCtx.textAlign = 'left';
+        eCtx.fillText('物料清单', startX, currentY);
+        currentY += 50;
+
+        eCtx.font = 'bold 26px "Microsoft YaHei"';
+        let x = startX;
+        eCtx.fillText('分类', x, currentY); x += colW[0];
+        eCtx.fillText('内容', x, currentY); x += colW[1];
+        eCtx.fillText('数量', x, currentY); x += colW[2];
+        eCtx.fillText('成本估算', x, currentY); x += colW[3];
+        eCtx.fillText('厂家/店铺', x, currentY);
+        currentY += 40;
+
+        eCtx.beginPath();
+        eCtx.moveTo(startX, currentY - 10);
+        eCtx.lineTo(startX + colW.reduce((a,b)=>a+b,0), currentY - 10);
+        eCtx.lineWidth = 1.5;
+        eCtx.stroke();
+
+        eCtx.font = '24px "Microsoft YaHei"';
+        let totalCost = 0;
+        allItems.forEach(item => {
+            let xp = startX;
+            eCtx.fillText(item.cat, xp, currentY); xp += colW[0];
+            eCtx.fillText(item.name, xp, currentY); xp += colW[1];
+            eCtx.fillText(item.qty, xp, currentY); xp += colW[2];
+            eCtx.fillText('¥' + item.cost.toFixed(2), xp, currentY); xp += colW[3];
+            eCtx.fillText(item.supplier, xp, currentY);
+            currentY += 34;
+            totalCost += item.cost;
+        });
+
+        eCtx.font = 'bold 26px "Microsoft YaHei"';
+        eCtx.fillText(`总计：¥${totalCost.toFixed(2)}`, startX + colW[0] + colW[1] + colW[2] + colW[3] - 180, currentY + 20);
+
+        const link = document.createElement('a');
+        link.download = 'Hitboard_Classic_Config.png';
+        link.href = exportCanvas.toDataURL('image/png');
+        link.click();
+
+        if (originalGuideEnabled) {
+            guideEnabled = true;
+            draw();
+        }
+    }
+
+    // DOM 元素绑定
+    const caseInput = document.getElementById('caseColor');
+    const panelInput = document.getElementById('panelColor');
+    const joystickColorInput = document.getElementById('joystickColor');
+    const funcKeyColorInput = document.getElementById('funcKeyColor');
+    const actionKeyColorInput = document.getElementById('actionKeyColor');
+    const unifyCheckbox = document.getElementById('unifyColors');
+    const coverScrewCheck = document.getElementById('coverScrewCheck');
+    const magneticRailCheck = document.getElementById('magneticRailCheck');
+    const batteryPackCheck = document.getElementById('batteryPackCheck');
+    const rightNone = document.getElementById('rightNone'), rightIndex = document.getElementById('rightIndex'), rightThumb = document.getElementById('rightThumb'), rightBoth = document.getElementById('rightBoth');
+    const leftNone = document.getElementById('leftNone'), leftDirection = document.getElementById('leftDirection'), leftDirectionShift = document.getElementById('leftDirectionShift');
+    const formArcade = document.getElementById('formArcade'), formMixbox = document.getElementById('formMixbox');
+    const joystickLeft = document.getElementById('joystickLeft'), joystickRight = document.getElementById('joystickRight');
+    const hideJoystickCheck = document.getElementById('hideJoystickCheck');
+    const guideNone = document.getElementById('guideNone'), guideOn = document.getElementById('guideOn');
+    const uploadBtn = document.getElementById('uploadWallpaperBtn'), clearBtn = document.getElementById('clearWallpaperBtn'), fileInput = document.getElementById('wallpaperFile');
+    const scaleSlider = document.getElementById('scaleSlider'), scaleSpan = document.getElementById('scaleValue');
+    const autoColorChk = document.getElementById('autoColorCheckbox');
+    const paletteContainer = document.getElementById('paletteContainer');
+    const exportWallpaperBtn = document.getElementById('exportWallpaperBtn');
+    const exportProductBtn = document.getElementById('exportProductBtn');
+    const editableNameSpan = document.getElementById('editableName');
+    const mainTitleDiv = document.getElementById('mainTitle');
+    const themeToggle = document.getElementById('themeToggle');
+    const switchArcade = document.getElementById('switchArcade');
+    const switchKailh = document.getElementById('switchKailh');
+    const switchMx = document.getElementById('switchMx');
+    const guideOptionGroup = document.getElementById('guideOptionGroup');
+
+    caseInput.addEventListener('input', (e)=>{ caseColor=e.target.value; if(unifyCheckbox.checked) applyUnify(); else draw(); });
+    panelInput.addEventListener('input', (e)=>{ panelColor=e.target.value; if(unifyCheckbox.checked) unifyCheckbox.checked=false; draw(); });
+    joystickColorInput.addEventListener('input', (e)=>{ joystickColor=e.target.value; draw(); });
+    funcKeyColorInput.addEventListener('input', (e)=>{ funcKeyColor=e.target.value; if(unifyCheckbox.checked) unifyCheckbox.checked=false; draw(); });
+    actionKeyColorInput.addEventListener('input', (e)=>{ actionKeyColor=e.target.value; if(unifyCheckbox.checked) unifyCheckbox.checked=false; draw(); });
+    unifyCheckbox.addEventListener('change', applyUnify);
+    coverScrewCheck.addEventListener('change', (e)=>{ coverScrew=e.target.checked; });
+    magneticRailCheck.addEventListener('change', (e)=>{ magneticRail=e.target.checked; });
+    batteryPackCheck.addEventListener('change', (e)=>{ batteryPack=e.target.checked; });
+    rightNone.addEventListener('change', ()=>{ rightHandMode='none'; draw(); });
+    rightIndex.addEventListener('change', ()=>{ rightHandMode='index'; draw(); });
+    rightThumb.addEventListener('change', ()=>{ rightHandMode='thumb'; draw(); });
+    rightBoth.addEventListener('change', ()=>{ rightHandMode='both'; draw(); });
+    leftNone.addEventListener('change', ()=>{ leftHandMode='none'; updateHideJoystickVisibility(); draw(); });
+    leftDirection.addEventListener('change', ()=>{ leftHandMode='direction'; updateHideJoystickVisibility(); draw(); });
+    leftDirectionShift.addEventListener('change', ()=>{ leftHandMode='direction_shift'; updateHideJoystickVisibility(); draw(); });
+    formArcade.addEventListener('change', ()=>{ deviceForm='arcade'; updateKeyConfig(); draw(); });
+    formMixbox.addEventListener('change', ()=>{ deviceForm='mixbox'; updateKeyConfig(); draw(); });
+    joystickLeft.addEventListener('change', ()=>{ joystickSide='left'; draw(); });
+    joystickRight.addEventListener('change', ()=>{ joystickSide='right'; draw(); });
+    hideJoystickCheck.addEventListener('change', (e)=>{ 
+        hideJoystick = e.target.checked; 
+        updateHideJoystickVisibility(); 
+        draw(); 
+    });
+    guideNone.addEventListener('change', ()=>{ guideEnabled=false; draw(); });
+    guideOn.addEventListener('change', ()=>{ guideEnabled=true; draw(); });
+    switchArcade.addEventListener('change', ()=>{ if(switchArcade.checked) selectedSwitch='arcade'; });
+    switchKailh.addEventListener('change', ()=>{ if(switchKailh.checked) selectedSwitch='kailh'; });
+    switchMx.addEventListener('change', ()=>{ if(switchMx.checked) selectedSwitch='mx'; });
+
+    uploadBtn.onclick = ()=> fileInput.click();
+    fileInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const img = new Image();
+            img.onload = () => {
+                wallpaperImage = img;
+                wallpaperFlipX = false;
+                updateWallpaperCover();
+                document.getElementById('wallpaperStatus').innerText = `已加载: ${file.name.slice(0,15)}...`;
+                updatePalette();
+                if(autoColorChk.checked) applyWallpaperColor();
+                guideOptionGroup.style.display = 'block';
+                draw();
+            };
+            img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+    };
+    clearBtn.onclick = () => {
+        wallpaperImage = null;
+        document.getElementById('wallpaperStatus').innerText = '未设置壁纸';
+        paletteContainer.style.display = 'none';
+        guideOptionGroup.style.display = 'none';
+        guideNone.checked = true;
+        guideEnabled = false;
+        draw();
+    };
+    scaleSlider.oninput = (e) => { if(wallpaperImage){ wallpaperScale = parseFloat(e.target.value); scaleSpan.innerText = wallpaperScale.toFixed(2)+'x'; draw(); } };
+    autoColorChk.onchange = (e) => {
+        if (e.target.checked) {
+            if (!unifyCheckbox.checked) {
+                unifyCheckbox.checked = true;
+                applyUnify();
+            }
+            if (wallpaperImage) applyWallpaperColor();
+        }
+    };
+
+    canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        if(!wallpaperImage) return;
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+        const mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
+        const centerX = innerOffset + innerW/2, centerY = innerOffset + innerH/2;
+        const oldScale = wallpaperScale;
+        const delta = e.deltaY>0 ? 0.9 : 1.1;
+        let newScale = Math.min(3.0, Math.max(0.2, oldScale * delta));
+        const relX = (mouseX - centerX - wallpaperOffsetX) / oldScale;
+        const relY = (mouseY - centerY - wallpaperOffsetY) / oldScale;
+        wallpaperOffsetX = mouseX - centerX - relX * newScale;
+        wallpaperOffsetY = mouseY - centerY - relY * newScale;
+        wallpaperScale = newScale;
+        scaleSlider.value = newScale; scaleSpan.innerText = newScale.toFixed(2)+'x';
+        draw();
+    }, { passive: false });
+    canvas.addEventListener('mousedown', (e) => {
+        if(!wallpaperImage) return;
+        e.preventDefault();
+        isDragging = true;
+        const rect = canvas.getBoundingClientRect();
+        lastMouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+        lastMouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
+        canvas.style.cursor = 'grabbing';
+    });
+    window.addEventListener('mousemove', (e) => {
+        if(!isDragging || !wallpaperImage) return;
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+        const mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
+        wallpaperOffsetX += mouseX - lastMouseX;
+        wallpaperOffsetY += mouseY - lastMouseY;
+        lastMouseX = mouseX; lastMouseY = mouseY;
+        draw();
+    });
+    window.addEventListener('mouseup', () => { isDragging = false; canvas.style.cursor = 'grab'; });
+    canvas.addEventListener('dblclick', (e) => { if(wallpaperImage){ e.preventDefault(); wallpaperFlipX = !wallpaperFlipX; draw(); } });
+
+    let isPinkTheme = false;
+    themeToggle.onclick = () => { isPinkTheme = !isPinkTheme; document.body.classList.toggle('theme-pink', isPinkTheme); };
+    editableNameSpan.onclick = () => { let newName = prompt('请输入你的名字', userName); if(newName !== null) { userName = newName; updateTitle(); } };
+    function updateTitle() { mainTitleDiv.innerHTML = `设计 <span id="editableName" class="editable-name">${userName || '你'}</span> 的 Hitboard Classic。`; document.getElementById('editableName').onclick = arguments.callee; }
+    exportWallpaperBtn.onclick = exportWallpaper;
+    exportProductBtn.onclick = exportProductConfig;
+
+    updateKeyConfig();
+    updateHideJoystickVisibility();
+    canvas.style.cursor = 'grab';
+    canvas.width = outerW; canvas.height = outerH;
+    document.getElementById('canvasContainer').style.aspectRatio = `${outerW/outerH}`;
+    draw();
+})();
+</script>
+</body>
+</html>
