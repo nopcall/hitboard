@@ -32,3 +32,12 @@ Hitboard Air
 //由于卡扣结构的设计极其复杂，牵一发动全身。此型号提供全套 3D 打印文件作为标准答案。
 
 ![Hitboard Air](./images/HitboardAir_Design.png)
+
+
+Hitboard Classic
+
+Hitboard Classic – 不只是摇杆：可翻转、可滑动、可换轴、可配重、可塞主板的开源格斗外设平台。
+
+![Hitboard Air](./images/HitboardClassic.JPG)
+
+
