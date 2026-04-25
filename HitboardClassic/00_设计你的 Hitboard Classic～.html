@@ -872,9 +872,9 @@
 
         const hasDirectionKeys = hasDirection;
         
-        // 必选物料
+        // 必选物料：根据是否选择壁纸决定使用哪个3D打印套件
         let baseItems = [
-            { cat:'必选', name:'Hitboard Air 3D 打印套件', qty:'1套', cost:60, supplier:'自选' },
+            { cat:'必选', name: wallpaperImage ? 'Hitboard Air 3D 打印套件（不打印盖板）' : 'Hitboard Air 3D 打印套件', qty:'1套', cost: wallpaperImage ? 40 : 60, supplier:'自选' },
             { cat:'必选', name:'树莓派 Pico（RP2040 带焊接针脚）', qty:'1个', cost:10, supplier:'自选' },
             { cat:'必选', name:'宝联街机摇杆（附带 5p 双头杜邦线）', qty:'1个', cost:39, supplier:'宝联' },
             { cat:'必选', name:'单根杜邦线（杜邦转 2.8 端子）', qty:'20条', cost:8, supplier:'华宇动漫三和清水' },
@@ -882,24 +882,25 @@
             { cat:'必选', name:'Typec 公转母（母头带卡扣的塑料外壳）', qty:'1条', cost:5, supplier:'皓月实业' }
         ];
         if (hideJoystick) {
-            baseItems = baseItems.filter(item => item.name !== '宝联街机摇杆（附带 5p 双头杜邦线）');
+            baseItems = baseItems.filter(item => !item.name.includes('宝联街机摇杆'));
         }
 
         let optional = [];
 
+        // 选配壁纸：如果选择了壁纸，添加合并后的亚克力面板和盖板项
         if (wallpaperImage) {
-            optional.push({ cat:'选配壁纸', name:'亚克力面板（4mm 厚）', qty:'1张', cost:12, supplier:'德耀' });
+            optional.push({ cat:'选配壁纸', name:'亚克力面板（4mm 厚）、亚克力盖板（2mm 厚）', qty:'各1张', cost:16, supplier:'德耀' });
             optional.push({ cat:'选配壁纸', name:'A4 壁纸打印（建议选择磨砂质感）', qty:'1张', cost:4, supplier:'E彩冲印' });
             optional.push({ cat:'选配壁纸', name:'M2*12 螺丝（2mm 直径，12mm 长）', qty:'4颗', cost:3, supplier:'固万基/以瑟' });
             optional.push({ cat:'选配壁纸', name:'M2 螺帽（ 1.8mm 高）', qty:'4颗', cost:3, supplier:'固万基/以瑟' });
         }
 
-        // 按键类型（街机按钮改为宝联 24mm，单价1元）
+        // 按键类型（街机按钮：宝联 24mm 街机按钮（可自己剪短弹簧改轻克力），单价1元）
         if (selectedSwitch === 'arcade') {
-            const unitPrice = 1;   // 单价1元
+            const unitPrice = 1;
             const qty = hasDirectionKeys ? 20 : 15;
-            const cost = unitPrice * qty;  // 15或20元
-            optional.push({ cat:'选配街机按键', name:'宝联 24mm 街机按钮', qty: qty + '个', cost: cost, supplier:'宝联' });
+            const cost = unitPrice * qty;
+            optional.push({ cat:'选配街机按键', name:'宝联 24mm 街机按钮（可自己剪短弹簧改轻克力）', qty: qty + '个', cost: cost, supplier:'宝联' });
         } else if (selectedSwitch === 'kailh') {
             if (hasDirectionKeys) {
                 optional.push({ cat:'选配凯华矮轴按键', name:'凯华矮轴', qty:'20个', cost:60, supplier:'凯华' });
@@ -920,8 +921,8 @@
 
         // 选配磁吸
         if (magneticRail) {
-            optional.push({ cat:'选配磁吸', name:'F15x5x5mm 磁铁', qty:'20颗', cost:3, supplier:'磁工旗舰店' });
-            optional.push({ cat:'选配磁吸', name:'F15x5x2mm 磁铁', qty:'4颗', cost:1, supplier:'磁工旗舰店' });
+            optional.push({ cat:'选配磁吸', name:'F15x5x5mm 磁铁（装在外壳上）', qty:'20颗', cost:3, supplier:'磁工旗舰店' });
+            optional.push({ cat:'选配磁吸', name:'F15x5x2mm 磁铁（装在盖板上）', qty:'4颗', cost:1, supplier:'磁工旗舰店' });
         }
         // 选配电池仓
         if (batteryPack) {
