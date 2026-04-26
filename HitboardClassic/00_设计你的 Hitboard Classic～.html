@@ -56,7 +56,8 @@
         .footer-note { margin-top: 30px; font-size: 0.7rem; text-align: center; border-top-width: 1px; border-top-style: solid; padding-top: 18px; transition: color 0.2s, border-color 0.2s; }
         .designer-credit { margin-top: 16px; font-size: 0.8rem; opacity: 0.7; text-align: center; transition: color 0.2s; }
         #guideOptionGroup { display: none; }
-        #hideJoystickContainer { margin-top: 8px; }
+        #joystickColorRow { display: none; }
+        #hideDirectionKeysContainer { display: none; margin-top: 8px; margin-left: 24px; }
         body { background: #f5f7fa; }
         .editor-container { background: #ffffff; box-shadow: 0 20px 40px -12px rgba(0,0,0,0.15); border: 1px solid rgba(224, 230, 238, 0.6); }
         .preview-area { background: #fafcff; border-right-color: #e8ecf2; }
@@ -152,8 +153,8 @@
         <div class="option-group">
             <h3>外设形态</h3>
             <div class="radio-group">
-                <div class="radio-row"><input type="radio" name="deviceForm" id="formArcade" value="arcade" checked><label for="formArcade">街机/Hitbox 样式</label></div>
-                <div class="radio-row"><input type="radio" name="deviceForm" id="formMixbox" value="mixbox"><label for="formMixbox">Mixbox 样式</label></div>
+                <div class="radio-row"><input type="radio" name="deviceForm" id="formArcade" value="arcade" checked><label for="formArcade">Hitbox</label></div>
+                <div class="radio-row"><input type="radio" name="deviceForm" id="formMixbox" value="mixbox"><label for="formMixbox">Mixbox</label></div>
             </div>
         </div>
 
@@ -170,14 +171,15 @@
         <div class="option-group no-bottom-border">
             <h3>左手区域加键（附带封帽，随时封闭）</h3>
             <div class="radio-group">
-                <div class="radio-row"><input type="radio" name="leftHandMode" id="leftNone" value="none" checked><label for="leftNone">不加键（纯血街机摇杆）</label></div>
-                <div class="radio-row"><input type="radio" name="leftHandMode" id="leftDirection" value="direction"><label for="leftDirection">加键：方向键</label></div>
-                <div class="radio-row"><input type="radio" name="leftHandMode" id="leftDirectionShift" value="direction_shift"><label for="leftDirectionShift">加键：方向键+Shift</label></div>
+                <div class="radio-row"><input type="radio" name="leftHandMode" id="leftNone" value="none" checked><label for="leftNone">不加键</label></div>
+                <div class="radio-row"><input type="radio" name="leftHandMode" id="leftShift" value="shift"><label for="leftShift">加 1键：Shift</label></div>
+                <div class="radio-row"><input type="radio" name="leftHandMode" id="leftJoystick" value="joystick"><label for="leftJoystick">加 1键：摇杆</label></div>
+                <div class="radio-row"><input type="radio" name="leftHandMode" id="leftBoth" value="both"><label for="leftBoth">加 2键：Shift、摇杆</label></div>
             </div>
-            <!-- 隐藏摇杆（动态显示） -->
-            <div id="hideJoystickContainer" class="feature-checkbox">
-                <input type="checkbox" id="hideJoystickCheck">
-                <label for="hideJoystickCheck">不配置摇杆，作为纯 Hitbox/Mixbox 使用（会保留开孔，封帽封闭）</label>
+            <!-- 隐藏方向键复选框（仅在摇杆相关模式下显示） -->
+            <div id="hideDirectionKeysContainer" class="feature-checkbox">
+                <input type="checkbox" id="hideDirectionKeysCheck">
+                <label for="hideDirectionKeysCheck">隐藏方向键</label>
             </div>
         </div>
 
@@ -194,12 +196,11 @@
 
         <div class="option-group">
             <h3>外观：选择颜色</h3>
-            <div class="color-row"><span class="color-label">摇杆颜色</span><input type="color" id="joystickColor" value="#2b3b4c"></div>
-            <div class="color-row"><span class="color-label">功能键颜色</span><input type="color" id="funcKeyColor" value="#2b3b4c"></div>
-            <div class="color-row"><span class="color-label">拳脚键颜色</span><input type="color" id="actionKeyColor" value="#2b3b4c"></div>
+            <div class="color-row"><span class="color-label">按键颜色</span><input type="color" id="actionKeyColor" value="#2b3b4c"></div>
             <div class="color-row"><span class="color-label">盖板颜色</span><input type="color" id="panelColor" value="#d9e2ec"></div>
             <div class="color-row"><span class="color-label">外壳颜色</span><input type="color" id="caseColor" value="#3a4a5e"></div>
-            <div class="checkbox-row"><input type="checkbox" id="unifyColors"><label for="unifyColors">摇杆、功能键、拳脚键、盖板跟随外壳颜色</label></div>
+            <div class="color-row" id="joystickColorRow"><span class="color-label">摇杆颜色</span><input type="color" id="joystickColor" value="#2b3b4c"></div>
+            <div class="checkbox-row"><input type="checkbox" id="unifyColors"><label for="unifyColors">所有颜色跟随外壳</label></div>
         </div>
 
         <div class="option-group">
@@ -222,22 +223,21 @@
             </div>
         </div>
 
-        <!-- 按键类型（始终显示三个选项） -->
+        <!-- 按键类型（顺序：凯华矮轴、MX轴、街机轴） -->
         <div class="option-group" id="switchTypeGroup">
             <h3>按键类型</h3>
             <div class="radio-group" id="switchGroup">
-                <div class="radio-row"><input type="radio" name="switchType" id="switchArcade" value="arcade" checked><label for="switchArcade">街机轴</label></div>
-                <div class="radio-row"><input type="radio" name="switchType" id="switchKailh" value="kailh"><label for="switchKailh">凯华矮轴</label></div>
+                <div class="radio-row"><input type="radio" name="switchType" id="switchKailh" value="kailh" checked><label for="switchKailh">凯华矮轴</label></div>
                 <div class="radio-row"><input type="radio" name="switchType" id="switchMx" value="mx"><label for="switchMx">MX 轴</label></div>
+                <div class="radio-row"><input type="radio" name="switchType" id="switchArcade" value="arcade"><label for="switchArcade">街机轴</label></div>
             </div>
         </div>
 
-        <!-- 其他配置（顺序：选配盖板螺丝、选配磁吸、选配电池仓） -->
+        <!-- 其他配置 -->
         <div class="option-group">
             <h3>其他配置</h3>
             <div class="feature-checkbox"><input type="checkbox" id="coverScrewCheck"><label for="coverScrewCheck">选配盖板螺丝</label></div>
-            <div class="feature-checkbox"><input type="checkbox" id="magneticRailCheck"><label for="magneticRailCheck">选配磁吸</label></div>
-            <div class="feature-checkbox"><input type="checkbox" id="batteryPackCheck"><label for="batteryPackCheck">选配电池仓</label></div>
+            <div class="feature-checkbox"><input type="checkbox" id="magneticRailCheck"><label for="magneticRailCheck">选配盖板磁吸</label></div>
         </div>
         <div class="export-buttons"><button class="export-btn secondary" id="exportProductBtn"><span>📦 导出产品配置 (含物料清单)</span><span style="font-size:1.2rem;">↗</span></button></div>
         <div class="footer-note">科学街霸，从输入设备做起。</div>
@@ -268,6 +268,9 @@
         RIGHT_THUMB: 'RightThumb', ADD2: 'Add2',
         SHIFT: 'Shift', LEFT: 'Left', DOWN: 'Down', RIGHT: 'Right', LEFT_THUMB: 'LeftThumb'
     };
+
+    // 方向键列表（四个）
+    const DIRECTION_KEYS = [KEY_IDS.LEFT, KEY_IDS.DOWN, KEY_IDS.RIGHT, KEY_IDS.LEFT_THUMB];
 
     // 街机样式配置
     const arcadeKeyConfig = {
@@ -321,20 +324,18 @@
     let deviceForm = 'arcade';
     let joystickSide = 'left';
     let rightHandMode = 'none';
-    let leftHandMode = 'none';
-    let hideJoystick = false;
+    let leftHandMode = 'none';  // 'none', 'shift', 'joystick', 'both'
+    let hideDirectionKeys = false;
     let guideEnabled = false;
 
     let caseColor = document.getElementById('caseColor').value;
     let panelColor = document.getElementById('panelColor').value;
-    let joystickColor = document.getElementById('joystickColor').value;
-    let funcKeyColor = document.getElementById('funcKeyColor').value;
     let actionKeyColor = document.getElementById('actionKeyColor').value;
+    let joystickColor = document.getElementById('joystickColor').value;
     let unifyChecked = false;
     let coverScrew = false;
     let magneticRail = false;
-    let batteryPack = false;
-    let selectedSwitch = 'arcade';
+    let selectedSwitch = 'kailh';
 
     let wallpaperImage = null;
     let wallpaperScale = 1.0, wallpaperOffsetX = 0, wallpaperOffsetY = 0, wallpaperFlipX = false;
@@ -403,14 +404,22 @@
             KEY_IDS.A, KEY_IDS.B, KEY_IDS.RT, KEY_IDS.LT,
             KEY_IDS.RIGHT_THUMB
         ];
-        if (!hideJoystick) visible.push(KEY_IDS.STICK);
+        // 摇杆：当模式为 joystick 或 both 时显示
+        if (leftHandMode === 'joystick' || leftHandMode === 'both') {
+            visible.push(KEY_IDS.STICK);
+        }
+        // Shift 键：当模式为 shift 或 both 时显示，但若隐藏方向键且模式为 both，则 Shift 不显示（因为隐藏方向键会同时隐藏Shift）
+        const showShift = (leftHandMode === 'shift') || (leftHandMode === 'both');
+        const shouldHideDirection = (leftHandMode === 'joystick' || leftHandMode === 'both') && hideDirectionKeys;
+        if (showShift && !shouldHideDirection) {
+            visible.push(KEY_IDS.SHIFT);
+        }
+        // 方向键：默认显示，若处于摇杆相关模式且隐藏方向键开启，则不显示
+        if (!shouldHideDirection) {
+            visible.push(...DIRECTION_KEYS);
+        }
         if (rightHandMode === 'index' || rightHandMode === 'both') visible.push(KEY_IDS.ADD1);
         if (rightHandMode === 'thumb' || rightHandMode === 'both') visible.push(KEY_IDS.ADD2);
-        if (leftHandMode === 'direction') {
-            visible.push(KEY_IDS.LEFT, KEY_IDS.DOWN, KEY_IDS.RIGHT, KEY_IDS.LEFT_THUMB);
-        } else if (leftHandMode === 'direction_shift') {
-            visible.push(KEY_IDS.SHIFT, KEY_IDS.LEFT, KEY_IDS.DOWN, KEY_IDS.RIGHT, KEY_IDS.LEFT_THUMB);
-        }
         return visible;
     }
 
@@ -581,7 +590,7 @@
             let cx = panelCenterX + mirrorX(cfg.dx) * SCALE;
             let cy = panelCenterY - cfg.dy * SCALE;
             let color;
-            if (keyId.startsWith('Func')) color = funcKeyColor;
+            if (keyId.startsWith('Func')) color = actionKeyColor;
             else if (keyId === KEY_IDS.STICK) color = joystickColor;
             else color = actionKeyColor;
             ctx.save();
@@ -612,13 +621,14 @@
     function applyUnify() {
         if (unifyCheckbox.checked) {
             panelColor = caseColor;
-            funcKeyColor = caseColor;
             actionKeyColor = caseColor;
-            joystickColor = caseColor;
+            const joystickColorRow = document.getElementById('joystickColorRow');
+            if (joystickColorRow.style.display !== 'none') {
+                joystickColor = caseColor;
+                joystickColorInput.value = caseColor;
+            }
             panelInput.value = caseColor;
-            funcKeyColorInput.value = caseColor;
             actionKeyColorInput.value = caseColor;
-            joystickColorInput.value = caseColor;
         }
         draw();
     }
@@ -650,17 +660,8 @@
             const [r,g,b] = colorThief.getColor(wallpaperImage);
             const hex = `#${((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1)}`;
             caseInput.value = hex; caseColor = hex;
-            if (unifyCheckbox.checked) {
-                panelColor = caseColor;
-                funcKeyColor = caseColor;
-                actionKeyColor = caseColor;
-                joystickColor = caseColor;
-                panelInput.value = caseColor;
-                funcKeyColorInput.value = caseColor;
-                actionKeyColorInput.value = caseColor;
-                joystickColorInput.value = caseColor;
-            }
-            draw();
+            if (unifyCheckbox.checked) applyUnify();
+            else draw();
         } catch(e) { console.error('取色失败', e); }
     }
 
@@ -681,17 +682,19 @@
         }
     }
 
-    function updateHideJoystickVisibility() {
-        const container = document.getElementById('hideJoystickContainer');
-        if (leftHandMode === 'direction' || leftHandMode === 'direction_shift') {
-            container.style.display = 'flex';
-        } else {
-            container.style.display = 'none';
-            if (hideJoystick) {
-                hideJoystick = false;
-                document.getElementById('hideJoystickCheck').checked = false;
-                draw();
-            }
+    // 控制摇杆颜色行和隐藏方向键复选框的可见性
+    function updateJoystickControls() {
+        const row = document.getElementById('joystickColorRow');
+        const hideContainer = document.getElementById('hideDirectionKeysContainer');
+        // 摇杆颜色仅在需要显示摇杆时显示（joystick 或 both）
+        const showJoystick = (leftHandMode === 'joystick' || leftHandMode === 'both');
+        row.style.display = showJoystick ? 'flex' : 'none';
+        // 隐藏方向键复选框仅在摇杆相关模式下显示（joystick 或 both）
+        hideContainer.style.display = showJoystick ? 'flex' : 'none';
+        if (!showJoystick && hideDirectionKeys) {
+            hideDirectionKeys = false;
+            document.getElementById('hideDirectionKeysCheck').checked = false;
+            draw();
         }
     }
 
@@ -855,13 +858,14 @@
         const prodY = (exportCanvas.height - prodH) / 2;
         eCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height, prodX, prodY, prodW, prodH);
 
-        const formName = deviceForm === 'arcade' ? '街机/Hitbox 样式' : 'Mixbox 样式';
+        // 构建标题
+        const formName = deviceForm === 'arcade' ? 'Hitbox' : 'Mixbox';
         const handName = joystickSide === 'left' ? '左手方向' : '右手方向';
         let leftModeName = '';
-        const hasDirection = (leftHandMode === 'direction' || leftHandMode === 'direction_shift');
-        if (!hasDirection) leftModeName = '纯血';
-        else if (hasDirection && !hideJoystick) leftModeName = '混合';
-        else leftModeName = '现代';
+        if (leftHandMode === 'none') leftModeName = '纯血';
+        else if (leftHandMode === 'shift') leftModeName = 'Shift';
+        else if (leftHandMode === 'joystick') leftModeName = '摇杆';
+        else if (leftHandMode === 'both') leftModeName = '摇杆+Shift';
         const titleSuffix = `（${formName} ｜ ${handName} ｜ ${leftModeName}）`;
         const baseTitle = userName ? `${userName} 的 Hitboard Classic。` : '你的 Hitboard Classic。';
         const title = baseTitle + titleSuffix;
@@ -870,24 +874,21 @@
         eCtx.textAlign = 'center';
         eCtx.fillText(title, exportCanvas.width / 2, prodY - 60);
 
-        const hasDirectionKeys = hasDirection;
-        
-        // 必选物料：根据是否选择壁纸决定使用哪个3D打印套件
+        // 必选物料
         let baseItems = [
             { cat:'必选', name: wallpaperImage ? 'Hitboard Air 3D 打印套件（不打印盖板）' : 'Hitboard Air 3D 打印套件', qty:'1套', cost: wallpaperImage ? 40 : 60, supplier:'自选' },
             { cat:'必选', name:'树莓派 Pico（RP2040 带焊接针脚）', qty:'1个', cost:10, supplier:'自选' },
-            { cat:'必选', name:'宝联街机摇杆（附带 5p 双头杜邦线）', qty:'1个', cost:39, supplier:'宝联' },
             { cat:'必选', name:'单根杜邦线（杜邦转 2.8 端子）', qty:'20条', cost:8, supplier:'华宇动漫三和清水' },
             { cat:'必选', name:'HITBOX 按钮数据线树莓派（1 串 10）', qty:'2条', cost:5.4, supplier:'华宇动漫三和清水' },
             { cat:'必选', name:'Typec 公转母（母头带卡扣的塑料外壳）', qty:'1条', cost:5, supplier:'皓月实业' }
         ];
-        if (hideJoystick) {
-            baseItems = baseItems.filter(item => !item.name.includes('宝联街机摇杆'));
+        // 只有选择了摇杆（joystick 或 both）才添加摇杆物料
+        if (leftHandMode === 'joystick' || leftHandMode === 'both') {
+            baseItems.push({ cat:'必选', name:'宝联街机摇杆（附带 5p 双头杜邦线）', qty:'1个', cost:39, supplier:'宝联' });
         }
 
         let optional = [];
 
-        // 选配壁纸：如果选择了壁纸，添加合并后的亚克力面板和盖板项
         if (wallpaperImage) {
             optional.push({ cat:'选配壁纸', name:'亚克力面板（4mm 厚）、亚克力盖板（2mm 厚）', qty:'各1张', cost:16, supplier:'德耀' });
             optional.push({ cat:'选配壁纸', name:'A4 壁纸打印（建议选择磨砂质感）', qty:'1张', cost:4, supplier:'E彩冲印' });
@@ -895,54 +896,35 @@
             optional.push({ cat:'选配壁纸', name:'M2 螺帽（ 1.8mm 高）', qty:'4颗', cost:3, supplier:'固万基/以瑟' });
         }
 
-        // 按键类型（街机按钮：宝联 24mm 街机按钮（可自己剪短弹簧改轻克力），单价1元）
-        if (selectedSwitch === 'arcade') {
-            const unitPrice = 1;
-            const qty = hasDirectionKeys ? 20 : 15;
-            const cost = unitPrice * qty;
-            optional.push({ cat:'选配街机按键', name:'宝联 24mm 街机按钮（可自己剪短弹簧改轻克力）', qty: qty + '个', cost: cost, supplier:'宝联' });
-        } else if (selectedSwitch === 'kailh') {
-            if (hasDirectionKeys) {
-                optional.push({ cat:'选配凯华矮轴按键', name:'凯华矮轴', qty:'20个', cost:60, supplier:'凯华' });
-                optional.push({ cat:'选配凯华矮轴按键', name:'端子 2.8 公+母', qty:'50组', cost:8.5, supplier:'高斯精密科技' });
-            } else {
-                optional.push({ cat:'选配凯华矮轴按键', name:'凯华矮轴', qty:'15个', cost:45, supplier:'凯华' });
-                optional.push({ cat:'选配凯华矮轴按键', name:'端子 2.8 公+母', qty:'50组', cost:8.5, supplier:'高斯精密科技' });
-            }
+        // 按键类型（数量固定为15）
+        if (selectedSwitch === 'kailh') {
+            optional.push({ cat:'选配凯华矮轴按键', name:'凯华矮轴', qty:'15个', cost:45, supplier:'凯华' });
+            optional.push({ cat:'选配凯华矮轴按键', name:'端子 2.8 公+母', qty:'50组', cost:8.5, supplier:'高斯精密科技' });
         } else if (selectedSwitch === 'mx') {
-            if (hasDirectionKeys) {
-                optional.push({ cat:'选配 MX 轴按键', name:'MX 轴', qty:'20个', cost:7, supplier:'一键电子' });
-                optional.push({ cat:'选配 MX 轴按键', name:'端子 2.8 公+母', qty:'50组', cost:8.5, supplier:'高斯精密科技' });
-            } else {
-                optional.push({ cat:'选配 MX 轴按键', name:'MX 轴', qty:'15个', cost:6, supplier:'一键电子' });
-                optional.push({ cat:'选配 MX 轴按键', name:'端子 2.8 公+母', qty:'50组', cost:8.5, supplier:'高斯精密科技' });
-            }
+            optional.push({ cat:'选配 MX 轴按键', name:'MX 轴', qty:'15个', cost:6, supplier:'一键电子' });
+            optional.push({ cat:'选配 MX 轴按键', name:'端子 2.8 公+母', qty:'50组', cost:8.5, supplier:'高斯精密科技' });
+        } else if (selectedSwitch === 'arcade') {
+            optional.push({ cat:'选配街机按键', name:'宝联 24mm 街机按钮（可自己剪短弹簧改轻克力）', qty:'15个', cost:15, supplier:'宝联' });
         }
 
-        // 选配磁吸
+        // 选配盖板磁吸
         if (magneticRail) {
-            optional.push({ cat:'选配磁吸', name:'F15x5x5mm 磁铁（装在外壳上）', qty:'20颗', cost:3, supplier:'磁工旗舰店' });
-            optional.push({ cat:'选配磁吸', name:'F15x5x2mm 磁铁（装在盖板上）', qty:'4颗', cost:1, supplier:'磁工旗舰店' });
+            optional.push({ cat:'选配盖板磁吸', name:'F15x5x5mm 磁铁（装在外壳上）', qty:'20颗', cost:3, supplier:'磁工旗舰店' });
+            optional.push({ cat:'选配盖板磁吸', name:'F15x5x2mm 磁铁（装在盖板上）', qty:'4颗', cost:1, supplier:'磁工旗舰店' });
         }
-        // 选配电池仓
-        if (batteryPack) {
-            optional.push({ cat:'选配电池仓', name:'电池弹簧 （5 号单极片（12*12））', qty:'1组', cost:1, supplier:'晋荣达弹簧' });
-        }
-        // 选配盖板螺丝：如果壁纸已包含螺丝螺帽，则不重复添加
+        // 选配盖板螺丝
         const wallpaperHasScrew = wallpaperImage ? true : false;
         if (coverScrew && !wallpaperHasScrew) {
             optional.push({ cat:'选配盖板螺丝', name:'M2*12 螺丝（2mm 直径，12mm 长）', qty:'4颗', cost:3, supplier:'固万基/以瑟' });
             optional.push({ cat:'选配盖板螺丝', name:'M2 螺帽（ 1.8mm 高）', qty:'4颗', cost:3, supplier:'固万基/以瑟' });
         }
 
-        // 合并去重（基于名称）
+        // 合并去重
         const itemMap = new Map();
         const allTemp = [...baseItems, ...optional];
         allTemp.forEach(item => {
             const key = item.name;
-            if (!itemMap.has(key)) {
-                itemMap.set(key, item);
-            }
+            if (!itemMap.has(key)) itemMap.set(key, item);
         });
         const allItems = Array.from(itemMap.values());
 
@@ -1001,18 +983,16 @@
     // DOM 元素绑定
     const caseInput = document.getElementById('caseColor');
     const panelInput = document.getElementById('panelColor');
-    const joystickColorInput = document.getElementById('joystickColor');
-    const funcKeyColorInput = document.getElementById('funcKeyColor');
     const actionKeyColorInput = document.getElementById('actionKeyColor');
+    const joystickColorInput = document.getElementById('joystickColor');
     const unifyCheckbox = document.getElementById('unifyColors');
     const coverScrewCheck = document.getElementById('coverScrewCheck');
     const magneticRailCheck = document.getElementById('magneticRailCheck');
-    const batteryPackCheck = document.getElementById('batteryPackCheck');
     const rightNone = document.getElementById('rightNone'), rightIndex = document.getElementById('rightIndex'), rightThumb = document.getElementById('rightThumb'), rightBoth = document.getElementById('rightBoth');
-    const leftNone = document.getElementById('leftNone'), leftDirection = document.getElementById('leftDirection'), leftDirectionShift = document.getElementById('leftDirectionShift');
+    const leftNone = document.getElementById('leftNone'), leftShift = document.getElementById('leftShift'), leftJoystick = document.getElementById('leftJoystick'), leftBoth = document.getElementById('leftBoth');
+    const hideDirectionKeysCheck = document.getElementById('hideDirectionKeysCheck');
     const formArcade = document.getElementById('formArcade'), formMixbox = document.getElementById('formMixbox');
     const joystickLeft = document.getElementById('joystickLeft'), joystickRight = document.getElementById('joystickRight');
-    const hideJoystickCheck = document.getElementById('hideJoystickCheck');
     const guideNone = document.getElementById('guideNone'), guideOn = document.getElementById('guideOn');
     const uploadBtn = document.getElementById('uploadWallpaperBtn'), clearBtn = document.getElementById('clearWallpaperBtn'), fileInput = document.getElementById('wallpaperFile');
     const scaleSlider = document.getElementById('scaleSlider'), scaleSpan = document.getElementById('scaleValue');
@@ -1023,41 +1003,36 @@
     const editableNameSpan = document.getElementById('editableName');
     const mainTitleDiv = document.getElementById('mainTitle');
     const themeToggle = document.getElementById('themeToggle');
-    const switchArcade = document.getElementById('switchArcade');
     const switchKailh = document.getElementById('switchKailh');
     const switchMx = document.getElementById('switchMx');
+    const switchArcade = document.getElementById('switchArcade');
     const guideOptionGroup = document.getElementById('guideOptionGroup');
 
     caseInput.addEventListener('input', (e)=>{ caseColor=e.target.value; if(unifyCheckbox.checked) applyUnify(); else draw(); });
     panelInput.addEventListener('input', (e)=>{ panelColor=e.target.value; if(unifyCheckbox.checked) unifyCheckbox.checked=false; draw(); });
-    joystickColorInput.addEventListener('input', (e)=>{ joystickColor=e.target.value; draw(); });
-    funcKeyColorInput.addEventListener('input', (e)=>{ funcKeyColor=e.target.value; if(unifyCheckbox.checked) unifyCheckbox.checked=false; draw(); });
     actionKeyColorInput.addEventListener('input', (e)=>{ actionKeyColor=e.target.value; if(unifyCheckbox.checked) unifyCheckbox.checked=false; draw(); });
+    joystickColorInput.addEventListener('input', (e)=>{ joystickColor=e.target.value; draw(); });
     unifyCheckbox.addEventListener('change', applyUnify);
     coverScrewCheck.addEventListener('change', (e)=>{ coverScrew=e.target.checked; });
     magneticRailCheck.addEventListener('change', (e)=>{ magneticRail=e.target.checked; });
-    batteryPackCheck.addEventListener('change', (e)=>{ batteryPack=e.target.checked; });
     rightNone.addEventListener('change', ()=>{ rightHandMode='none'; draw(); });
     rightIndex.addEventListener('change', ()=>{ rightHandMode='index'; draw(); });
     rightThumb.addEventListener('change', ()=>{ rightHandMode='thumb'; draw(); });
     rightBoth.addEventListener('change', ()=>{ rightHandMode='both'; draw(); });
-    leftNone.addEventListener('change', ()=>{ leftHandMode='none'; updateHideJoystickVisibility(); draw(); });
-    leftDirection.addEventListener('change', ()=>{ leftHandMode='direction'; updateHideJoystickVisibility(); draw(); });
-    leftDirectionShift.addEventListener('change', ()=>{ leftHandMode='direction_shift'; updateHideJoystickVisibility(); draw(); });
+    leftNone.addEventListener('change', ()=>{ leftHandMode='none'; updateJoystickControls(); draw(); });
+    leftShift.addEventListener('change', ()=>{ leftHandMode='shift'; updateJoystickControls(); draw(); });
+    leftJoystick.addEventListener('change', ()=>{ leftHandMode='joystick'; updateJoystickControls(); draw(); });
+    leftBoth.addEventListener('change', ()=>{ leftHandMode='both'; updateJoystickControls(); draw(); });
+    hideDirectionKeysCheck.addEventListener('change', (e)=>{ hideDirectionKeys = e.target.checked; draw(); });
     formArcade.addEventListener('change', ()=>{ deviceForm='arcade'; updateKeyConfig(); draw(); });
     formMixbox.addEventListener('change', ()=>{ deviceForm='mixbox'; updateKeyConfig(); draw(); });
     joystickLeft.addEventListener('change', ()=>{ joystickSide='left'; draw(); });
     joystickRight.addEventListener('change', ()=>{ joystickSide='right'; draw(); });
-    hideJoystickCheck.addEventListener('change', (e)=>{ 
-        hideJoystick = e.target.checked; 
-        updateHideJoystickVisibility(); 
-        draw(); 
-    });
     guideNone.addEventListener('change', ()=>{ guideEnabled=false; draw(); });
     guideOn.addEventListener('change', ()=>{ guideEnabled=true; draw(); });
-    switchArcade.addEventListener('change', ()=>{ if(switchArcade.checked) selectedSwitch='arcade'; });
     switchKailh.addEventListener('change', ()=>{ if(switchKailh.checked) selectedSwitch='kailh'; });
     switchMx.addEventListener('change', ()=>{ if(switchMx.checked) selectedSwitch='mx'; });
+    switchArcade.addEventListener('change', ()=>{ if(switchArcade.checked) selectedSwitch='arcade'; });
 
     uploadBtn.onclick = ()=> fileInput.click();
     fileInput.onchange = (e) => {
@@ -1149,7 +1124,7 @@
     exportProductBtn.onclick = exportProductConfig;
 
     updateKeyConfig();
-    updateHideJoystickVisibility();
+    updateJoystickControls();
     canvas.style.cursor = 'grab';
     canvas.width = outerW; canvas.height = outerH;
     document.getElementById('canvasContainer').style.aspectRatio = `${outerW/outerH}`;
