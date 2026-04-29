@@ -20,6 +20,3 @@ Classic 大杯
 
 
 ![Hitboard Classic](./images/大杯1.JPG)
-
-![Hitboard Classic](./images/大杯.JPG)
-
