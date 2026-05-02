@@ -1,5 +1,6 @@
 #include <esp_now.h>
 #include <WiFi.h>
+#include <esp_wifi.h>          // 增加：功率设置所需的头文件
 
 // ========== 引脚定义 ==========
 #define PIN_UP      13
@@ -35,9 +36,14 @@ int DEBOUNCE_DELAY_MS = 0;               // 消抖延迟 0ms（无消抖）
 #define ACTIVE_DELAY_US    1000          // 有按键时 1000us → 1000Hz
 #define IDLE_DELAY_MS      100           // 无按键时 100ms → 10Hz
 #define IDLE_TIMEOUT_MS    60000         // 无按键持续 60 秒后降频
+
+// 无线发射功率设置（单位：0.25 dBm，默认 20 = 5 dBm，约 3.16 mW）
+// 可调节范围 0 ~ 84，对应 0.25 dBm 步进，实际功率 = value * 0.25 dBm
+// 室内无干扰时可适当降低，减少辐射；距离远则需增大
+#define TX_POWER           20            // ← 修改此值以调整功率
 // ==================================================
 
-// ========== 接收端 MAC 地址（需修改为你的接收端 MAC） ！！！==========
+// ========== 接收端 MAC 地址（需修改为你的接收端 MAC） ==========
 uint8_t receiverMac[] = {0x24, 0xEC, 0x4A, 0x11, 0x9F, 0x3C};
 
 // ========== 按键状态数据包 ==========
@@ -195,6 +201,8 @@ void setup() {
   if (esp_now_init() != ESP_OK) {
     Serial.println("ESP-NOW 初始化失败，但串口输出将继续工作");
   } else {
+    // 设置发射功率（降低辐射）
+    esp_wifi_set_max_tx_power(TX_POWER);
     esp_now_peer_info_t peerInfo = {};
     memcpy(peerInfo.peer_addr, receiverMac, 6);
     peerInfo.channel = 0;
@@ -202,7 +210,7 @@ void setup() {
     if (esp_now_add_peer(&peerInfo) != ESP_OK) {
       Serial.println("添加接收端失败，无线可能无法发送");
     } else {
-      Serial.println("无线模式已就绪");
+      Serial.printf("无线模式已就绪，发射功率 = %d (x0.25dBm)\n", TX_POWER);
     }
   }
 

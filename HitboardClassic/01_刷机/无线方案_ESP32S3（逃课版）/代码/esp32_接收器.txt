@@ -1,5 +1,6 @@
 #include <esp_now.h>
 #include <WiFi.h>
+#include <esp_wifi.h>          // 添加功率控制头文件
 
 // ==================================================
 // 统一回报率参数（1000Hz 活动，10Hz 空闲）
@@ -7,6 +8,9 @@
 #define ACTIVE_DELAY_US    1000          // 有按键时 1000us → 1000Hz
 #define IDLE_DELAY_MS      100           // 无按键时 100ms → 10Hz
 #define IDLE_TIMEOUT_MS    60000         // 无按键持续 60 秒后降频
+
+// 无线发射功率设置（与发射端保持一致，单位：0.25 dBm）
+#define TX_POWER           20            // 5 dBm，约 3.16 mW
 // ==================================================
 
 typedef struct __attribute__((packed)) {
@@ -70,10 +74,12 @@ void setup() {
     Serial.println("ESP-NOW init failed");
     return;
   }
+  // 设置发射功率（限制ACK的功率）
+  esp_wifi_set_max_tx_power(TX_POWER);
   esp_now_register_recv_cb(onDataRecv);
   memset(&lastSentState, 0, sizeof(lastSentState));
   lastActiveTime = millis();
-  Serial.println("READY (1000Hz)");
+  Serial.printf("接收端已就绪 (1000Hz, TX_POWER=%d)\n", TX_POWER);
 }
 
 void loop() {
