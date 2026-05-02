@@ -1,0 +1,244 @@
+#include <esp_now.h>
+#include <WiFi.h>
+
+// ========== 引脚定义 ==========
+#define PIN_UP      13
+#define PIN_DOWN    14
+#define PIN_LEFT    16
+#define PIN_RIGHT   15
+#define PIN_A       17
+#define PIN_B       18
+#define PIN_X       35
+#define PIN_Y       36
+#define PIN_LB      38
+#define PIN_RB      37
+#define PIN_LT      34
+#define PIN_RT      33
+#define PIN_START   41
+#define PIN_SELECT  42
+#define PIN_HOME    5
+#define PIN_CAPTURE 4
+#define PIN_LS      1
+#define PIN_RS      2
+#define PIN_AB      11
+#define PIN_XY      12
+#define PIN_AX      39
+#define PIN_LT_EXTRA1  10
+#define PIN_LT_EXTRA2  9
+#define PIN_RT_EXTRA1  8
+#define PIN_RT_EXTRA2  7
+
+// ==================================================
+// 统一回报率参数（1000Hz 活动，10Hz 空闲）
+// ==================================================
+int DEBOUNCE_DELAY_MS = 0;               // 消抖延迟 0ms（无消抖）
+#define ACTIVE_DELAY_US    1000          // 有按键时 1000us → 1000Hz
+#define IDLE_DELAY_MS      100           // 无按键时 100ms → 10Hz
+#define IDLE_TIMEOUT_MS    60000         // 无按键持续 60 秒后降频
+// ==================================================
+
+// ========== 接收端 MAC 地址（需修改为你的接收端 MAC） ==========
+uint8_t receiverMac[] = {0x24, 0xEC, 0x4A, 0x11, 0x9F, 0x3C};
+
+// ========== 按键状态数据包 ==========
+typedef struct __attribute__((packed)) {
+  bool up; bool down; bool left; bool right;
+  bool a; bool b; bool x; bool y;
+  bool lb; bool rb; bool lt; bool rt;
+  bool start; bool select; bool home; bool capture;
+  bool ls; bool rs;
+} GamepadState;
+
+GamepadState lastSentState;
+
+// ========== 消抖结构体 ==========
+struct DebounceState {
+  bool lastStableState;
+  bool lastReading;
+  unsigned long lastDebounceTime;
+};
+
+DebounceState debStateUp, debStateDown, debStateLeft, debStateRight;
+DebounceState debStateA, debStateB, debStateX, debStateY;
+DebounceState debStateLB, debStateRB;
+DebounceState debStateLT, debStateLT1, debStateLT2;
+DebounceState debStateRT, debStateRT1, debStateRT2;
+DebounceState debStateStart, debStateSelect, debStateHome, debStateCapture;
+DebounceState debStateLS, debStateRS;
+DebounceState debStateAB, debStateXY, debStateAX;
+
+// ========== 消抖读取函数 ==========
+bool readDebounced(uint8_t pin, DebounceState &state) {
+  bool currentReading = (digitalRead(pin) == LOW);
+  if (currentReading != state.lastReading) {
+    state.lastDebounceTime = millis();
+    state.lastReading = currentReading;
+  }
+  if ((millis() - state.lastDebounceTime) >= (unsigned long)DEBOUNCE_DELAY_MS) {
+    if (currentReading != state.lastStableState) {
+      state.lastStableState = currentReading;
+    }
+  }
+  return state.lastStableState;
+}
+
+// ========== 读取所有按键 ==========
+GamepadState readButtons() {
+  GamepadState s;
+  bool rawUp    = readDebounced(PIN_UP,    debStateUp);
+  bool rawDown  = readDebounced(PIN_DOWN,  debStateDown);
+  bool rawLeft  = readDebounced(PIN_LEFT,  debStateLeft);
+  bool rawRight = readDebounced(PIN_RIGHT, debStateRight);
+  if (rawUp && rawDown) { rawUp = false; rawDown = false; }
+  if (rawLeft && rawRight) { rawLeft = false; rawRight = false; }
+  s.up = rawUp; s.down = rawDown; s.left = rawLeft; s.right = rawRight;
+
+  bool a = readDebounced(PIN_A, debStateA);
+  bool b = readDebounced(PIN_B, debStateB);
+  bool x = readDebounced(PIN_X, debStateX);
+  bool y = readDebounced(PIN_Y, debStateY);
+  bool ab = readDebounced(PIN_AB, debStateAB);
+  bool xy = readDebounced(PIN_XY, debStateXY);
+  bool ax = readDebounced(PIN_AX, debStateAX);
+  if (ab) { a = true; b = true; }
+  if (xy) { x = true; y = true; }
+  if (ax) { a = true; x = true; }
+  s.a = a; s.b = b; s.x = x; s.y = y;
+
+  s.lb = readDebounced(PIN_LB, debStateLB);
+  s.rb = readDebounced(PIN_RB, debStateRB);
+
+  bool lt1 = readDebounced(PIN_LT,        debStateLT);
+  bool lt2 = readDebounced(PIN_LT_EXTRA1, debStateLT1);
+  bool lt3 = readDebounced(PIN_LT_EXTRA2, debStateLT2);
+  s.lt = lt1 || lt2 || lt3;
+
+  bool rt1 = readDebounced(PIN_RT,        debStateRT);
+  bool rt2 = readDebounced(PIN_RT_EXTRA1, debStateRT1);
+  bool rt3 = readDebounced(PIN_RT_EXTRA2, debStateRT2);
+  s.rt = rt1 || rt2 || rt3;
+
+  s.start   = readDebounced(PIN_START,   debStateStart);
+  s.select  = readDebounced(PIN_SELECT,  debStateSelect);
+  s.home    = readDebounced(PIN_HOME,    debStateHome);
+  s.capture = readDebounced(PIN_CAPTURE, debStateCapture);
+  s.ls      = readDebounced(PIN_LS,      debStateLS);
+  s.rs      = readDebounced(PIN_RS,      debStateRS);
+
+  return s;
+}
+
+// ========== 检查是否有任意按键按下 ==========
+bool isAnyButtonPressed(const GamepadState &state) {
+  return state.up    || state.down  || state.left  || state.right ||
+         state.a     || state.b     || state.x     || state.y     ||
+         state.lb    || state.rb    || state.lt    || state.rt    ||
+         state.start || state.select|| state.home  || state.capture ||
+         state.ls    || state.rs;
+}
+
+// ========== 串口输出一帧（用于有线直连） ==========
+void sendSerialFrame(const GamepadState &s) {
+  char buf[19];
+  buf[0]  = s.up      ? '1' : '0';
+  buf[1]  = s.down    ? '1' : '0';
+  buf[2]  = s.left    ? '1' : '0';
+  buf[3]  = s.right   ? '1' : '0';
+  buf[4]  = s.a       ? '1' : '0';
+  buf[5]  = s.b       ? '1' : '0';
+  buf[6]  = s.x       ? '1' : '0';
+  buf[7]  = s.y       ? '1' : '0';
+  buf[8]  = s.lb      ? '1' : '0';
+  buf[9]  = s.rb      ? '1' : '0';
+  buf[10] = s.lt      ? '1' : '0';
+  buf[11] = s.rt      ? '1' : '0';
+  buf[12] = s.start   ? '1' : '0';
+  buf[13] = s.select  ? '1' : '0';
+  buf[14] = s.home    ? '1' : '0';
+  buf[15] = s.capture ? '1' : '0';
+  buf[16] = s.ls      ? '1' : '0';
+  buf[17] = s.rs      ? '1' : '0';
+  buf[18] = '\n';
+  Serial.write(buf, 19);
+}
+
+void setup() {
+  Serial.begin(460800);
+
+  // 引脚初始化
+  pinMode(PIN_UP, INPUT_PULLUP); pinMode(PIN_DOWN, INPUT_PULLUP);
+  pinMode(PIN_LEFT, INPUT_PULLUP); pinMode(PIN_RIGHT, INPUT_PULLUP);
+  pinMode(PIN_A, INPUT_PULLUP); pinMode(PIN_B, INPUT_PULLUP);
+  pinMode(PIN_X, INPUT_PULLUP); pinMode(PIN_Y, INPUT_PULLUP);
+  pinMode(PIN_LB, INPUT_PULLUP); pinMode(PIN_RB, INPUT_PULLUP);
+  pinMode(PIN_LT, INPUT_PULLUP); pinMode(PIN_RT, INPUT_PULLUP);
+  pinMode(PIN_START, INPUT_PULLUP); pinMode(PIN_SELECT, INPUT_PULLUP);
+  pinMode(PIN_HOME, INPUT_PULLUP); pinMode(PIN_CAPTURE, INPUT_PULLUP);
+  pinMode(PIN_LS, INPUT_PULLUP); pinMode(PIN_RS, INPUT_PULLUP);
+  pinMode(PIN_AB, INPUT_PULLUP); pinMode(PIN_XY, INPUT_PULLUP);
+  pinMode(PIN_AX, INPUT_PULLUP);
+  pinMode(PIN_LT_EXTRA1, INPUT_PULLUP); pinMode(PIN_LT_EXTRA2, INPUT_PULLUP);
+  pinMode(PIN_RT_EXTRA1, INPUT_PULLUP); pinMode(PIN_RT_EXTRA2, INPUT_PULLUP);
+
+  DebounceState init = {HIGH, HIGH, 0};
+  debStateUp = debStateDown = debStateLeft = debStateRight = init;
+  debStateA = debStateB = debStateX = debStateY = init;
+  debStateLB = debStateRB = init;
+  debStateLT = debStateLT1 = debStateLT2 = init;
+  debStateRT = debStateRT1 = debStateRT2 = init;
+  debStateStart = debStateSelect = debStateHome = debStateCapture = init;
+  debStateLS = debStateRS = init;
+  debStateAB = debStateXY = debStateAX = init;
+
+  // 初始化 ESP-NOW
+  WiFi.mode(WIFI_STA);
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("ESP-NOW 初始化失败，但串口输出将继续工作");
+  } else {
+    esp_now_peer_info_t peerInfo = {};
+    memcpy(peerInfo.peer_addr, receiverMac, 6);
+    peerInfo.channel = 0;
+    peerInfo.encrypt = false;
+    if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+      Serial.println("添加接收端失败，无线可能无法发送");
+    } else {
+      Serial.println("无线模式已就绪");
+    }
+  }
+
+  memset(&lastSentState, 0, sizeof(lastSentState));
+  Serial.println("发送端已就绪（同时支持无线和串口，1000Hz）");
+}
+
+void loop() {
+  static unsigned long lastActiveTime = millis();
+  static unsigned long currentDelayUs = ACTIVE_DELAY_US;   // 当前延迟（微秒）
+
+  GamepadState state = readButtons();
+  bool anyPressed = isAnyButtonPressed(state);
+
+  if (anyPressed) {
+    lastActiveTime = millis();
+  }
+
+  // 动态调整扫描间隔（微秒单位）
+  if (anyPressed) {
+    if (currentDelayUs != ACTIVE_DELAY_US) currentDelayUs = ACTIVE_DELAY_US;
+  } else {
+    if (millis() - lastActiveTime >= IDLE_TIMEOUT_MS) {
+      unsigned long idleUs = IDLE_DELAY_MS * 1000UL;
+      if (currentDelayUs != idleUs) currentDelayUs = idleUs;
+    } else {
+      if (currentDelayUs != ACTIVE_DELAY_US) currentDelayUs = ACTIVE_DELAY_US;
+    }
+  }
+
+  // 状态变化时：同时发送无线和串口
+  if (memcmp(&state, &lastSentState, sizeof(state)) != 0) {
+    esp_now_send(receiverMac, (uint8_t*)&state, sizeof(state));  // 无线发送
+    sendSerialFrame(state);                                      // 有线串口发送
+    lastSentState = state;
+  }
+
+  delayMicroseconds(currentDelayUs);
+}
