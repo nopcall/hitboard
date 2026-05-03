@@ -1,17 +1,17 @@
 #include <esp_now.h>
 #include <WiFi.h>
-#include <esp_wifi.h>          // 添加功率控制头文件
+#include <esp_wifi.h>
 
-// ==================================================
-// 统一回报率参数（1000Hz 活动，10Hz 空闲）
-// ==================================================
-#define ACTIVE_DELAY_US    1000          // 有按键时 1000us → 1000Hz
-#define IDLE_DELAY_MS      100           // 无按键时 100ms → 10Hz
-#define IDLE_TIMEOUT_MS    60000         // 无按键持续 60 秒后降频
+// ========== 可调参数 ==========
+uint32_t g_activeDelayUs = 1000;   // 活动轮询微秒
+uint32_t g_idleDelayMs = 100;
+uint32_t g_idleTimeoutMs = 60000;
+uint8_t  g_txPower = 20;
 
-// 无线发射功率设置（与发射端保持一致，单位：0.25 dBm）
-#define TX_POWER           20            // 5 dBm，约 3.16 mW
-// ==================================================
+// ========== 发射端 MAC 地址（与发射端代码中的接收端MAC相同？注意配对关系）==========
+// 实际上接收端需要知道发射端的MAC才能单播发送命令，但也可以广播或多对一。简单起见，我们固定发射端MAC。
+// 请修改为实际的发射端MAC地址
+uint8_t senderMac[] = {0x24, 0xEC, 0x4A, 0x11, 0x9F, 0x3D};
 
 typedef struct __attribute__((packed)) {
   bool up; bool down; bool left; bool right;
@@ -26,7 +26,7 @@ GamepadState lastSentState;
 bool newData = false;
 
 unsigned long lastActiveTime = 0;
-unsigned long currentDelayUs = ACTIVE_DELAY_US;
+unsigned long currentDelayUs = g_activeDelayUs;
 
 bool isAnyButtonPressed(const GamepadState &state) {
   return state.up    || state.down  || state.left  || state.right ||
@@ -64,6 +64,16 @@ void onDataRecv(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
   if (len == sizeof(GamepadState)) {
     memcpy(&currentState, data, sizeof(GamepadState));
     newData = true;
+  } else {
+    // 可能是来自发射端的文本回应（状态信息）
+    char msg[128];
+    if (len < sizeof(msg)-1) {
+      memcpy(msg, data, len);
+      msg[len] = '\0';
+      // 添加前缀以便PC区分
+      Serial.print("#");
+      Serial.println(msg);
+    }
   }
 }
 
@@ -74,45 +84,61 @@ void setup() {
     Serial.println("ESP-NOW init failed");
     return;
   }
-  // 设置发射功率（限制ACK的功率）
-  esp_wifi_set_max_tx_power(TX_POWER);
+  esp_wifi_set_max_tx_power(g_txPower);
   esp_now_register_recv_cb(onDataRecv);
+  // 添加发射端为对等方（以便发送命令）
+  esp_now_peer_info_t peerInfo = {};
+  memcpy(peerInfo.peer_addr, senderMac, 6);
+  peerInfo.channel = 0;
+  peerInfo.encrypt = false;
+  esp_now_add_peer(&peerInfo);
+
   memset(&lastSentState, 0, sizeof(lastSentState));
   lastActiveTime = millis();
-  Serial.printf("接收端已就绪 (1000Hz, TX_POWER=%d)\n", TX_POWER);
+  Serial.println("READY");   // 按键帧识别线
 }
 
 void loop() {
+  // 处理从PC串口来的命令（转发给发射端）
+  if (Serial.available()) {
+    static char cmdBuf[128];
+    static int idx = 0;
+    while (Serial.available()) {
+      char c = Serial.read();
+      if (c == '\n' || idx >= sizeof(cmdBuf)-1) {
+        cmdBuf[idx] = '\0';
+        if (strlen(cmdBuf) > 0) {
+          // 转发给发射端
+          esp_now_send(senderMac, (uint8_t*)cmdBuf, strlen(cmdBuf));
+        }
+        idx = 0;
+        break;
+      } else {
+        cmdBuf[idx++] = c;
+      }
+    }
+  }
+
   if (newData) {
     newData = false;
-
     if (memcmp(&currentState, &lastSentState, sizeof(GamepadState)) != 0) {
       sendSerialFrame(currentState);
       lastSentState = currentState;
     }
-
     if (isAnyButtonPressed(currentState)) {
       lastActiveTime = millis();
     }
   }
 
-  // 动态调整轮询间隔（微秒单位）
+  // 动态轮询延迟
   if (isAnyButtonPressed(currentState)) {
-    if (currentDelayUs != ACTIVE_DELAY_US) {
-      currentDelayUs = ACTIVE_DELAY_US;
-    }
+    currentDelayUs = g_activeDelayUs;
   } else {
-    if (millis() - lastActiveTime >= IDLE_TIMEOUT_MS) {
-      unsigned long idleUs = IDLE_DELAY_MS * 1000UL;
-      if (currentDelayUs != idleUs) {
-        currentDelayUs = idleUs;
-      }
+    if (millis() - lastActiveTime >= g_idleTimeoutMs) {
+      currentDelayUs = g_idleDelayMs * 1000UL;
     } else {
-      if (currentDelayUs != ACTIVE_DELAY_US) {
-        currentDelayUs = ACTIVE_DELAY_US;
-      }
+      currentDelayUs = g_activeDelayUs;
     }
   }
-
   delayMicroseconds(currentDelayUs);
 }

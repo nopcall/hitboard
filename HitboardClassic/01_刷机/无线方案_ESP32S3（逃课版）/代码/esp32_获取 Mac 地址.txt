@@ -1,0 +1,26 @@
+#include <WiFi.h>
+
+void setup() {
+  Serial.begin(115200);
+  // 等待串口就绪（尤其对于 ESP32-S3 原生 USB CDC）
+  delay(2000);
+  
+  WiFi.mode(WIFI_STA);
+  
+  // 确保 WiFi 已启动
+  delay(100);
+  
+  String mac = WiFi.macAddress();
+  Serial.println("=== ESP32 MAC Address ===");
+  Serial.println(mac);
+  Serial.println("=========================");
+}
+
+void loop() {
+  // 每隔 5 秒重复打印一次，防止错过
+  static unsigned long lastPrint = 0;
+  if (millis() - lastPrint > 5000) {
+    lastPrint = millis();
+    Serial.println(WiFi.macAddress());
+  }
+}

@@ -1,6 +1,7 @@
 #include <esp_now.h>
 #include <WiFi.h>
-#include <esp_wifi.h>          // 增加：功率设置所需的头文件
+#include <esp_wifi.h>
+#include <esp_sleep.h>
 
 // ========== 引脚定义 ==========
 #define PIN_UP      13
@@ -29,22 +30,19 @@
 #define PIN_RT_EXTRA1  8
 #define PIN_RT_EXTRA2  7
 
-// ==================================================
-// 统一回报率参数（1000Hz 活动，10Hz 空闲）
-// ==================================================
-int DEBOUNCE_DELAY_MS = 0;               // 消抖延迟 0ms（无消抖）
-#define ACTIVE_DELAY_US    1000          // 有按键时 1000us → 1000Hz
-#define IDLE_DELAY_MS      100           // 无按键时 100ms → 10Hz
-#define IDLE_TIMEOUT_MS    60000         // 无按键持续 60 秒后降频
+// ========== 可调参数（全局变量，运行时修改） ==========
+uint32_t g_activeDelayUs = 1000;      // 活动轮询微秒 (1000us = 1000Hz)
+uint32_t g_idleDelayMs = 100;         // 空闲轮询毫秒 (10Hz)
+uint32_t g_idleTimeoutMs = 60000;     // 空闲超时毫秒 (60秒)
+int32_t  g_debounceMs = 0;            // 消抖毫秒
+uint8_t  g_txPower = 20;              // 发射功率 (0.25dBm/step, 20=5dBm)
+uint8_t  g_cpuFreqMhz = 240;          // CPU频率 (默认240MHz)
 
-// 无线发射功率设置（单位：0.25 dBm，默认 20 = 5 dBm，约 3.16 mW）
-// 可调节范围 0 ~ 84，对应 0.25 dBm 步进，实际功率 = value * 0.25 dBm
-// 室内无干扰时可适当降低，减少辐射；距离远则需增大
-#define TX_POWER           20            // ← 修改此值以调整功率
-// ==================================================
+// 工作模式标志：0=双模(无线+串口), 1=无线only, 2=串口only
+uint8_t  g_workMode = 0;
 
-// ========== 接收端 MAC 地址（需修改为你的接收端 MAC） ==========
-uint8_t receiverMac[] = {0x24, 0xEC, 0x4A, 0x11, 0x9F, 0x3C};
+// ========== 接收端 MAC 地址 ==========
+uint8_t receiverMac[] = {0x24, 0xEC, 0x4A, 0x11, 0x9F, 0x3C}; // 请修改为实际MAC
 
 // ========== 按键状态数据包 ==========
 typedef struct __attribute__((packed)) {
@@ -73,6 +71,19 @@ DebounceState debStateStart, debStateSelect, debStateHome, debStateCapture;
 DebounceState debStateLS, debStateRS;
 DebounceState debStateAB, debStateXY, debStateAX;
 
+// ========== 命令接收相关 ==========
+bool commandPending = false;
+char cmdBuffer[64];
+uint8_t cmdLen = 0;
+
+// ========== 函数声明 ==========
+bool readDebounced(uint8_t pin, DebounceState &state);
+GamepadState readButtons();
+bool isAnyButtonPressed(const GamepadState &state);
+void sendSerialFrame(const GamepadState &s);
+void parseAndExecuteCommand(char *cmd);
+void sendStatusResponse();
+
 // ========== 消抖读取函数 ==========
 bool readDebounced(uint8_t pin, DebounceState &state) {
   bool currentReading = (digitalRead(pin) == LOW);
@@ -80,7 +91,7 @@ bool readDebounced(uint8_t pin, DebounceState &state) {
     state.lastDebounceTime = millis();
     state.lastReading = currentReading;
   }
-  if ((millis() - state.lastDebounceTime) >= (unsigned long)DEBOUNCE_DELAY_MS) {
+  if ((millis() - state.lastDebounceTime) >= (unsigned long)g_debounceMs) {
     if (currentReading != state.lastStableState) {
       state.lastStableState = currentReading;
     }
@@ -143,7 +154,7 @@ bool isAnyButtonPressed(const GamepadState &state) {
          state.ls    || state.rs;
 }
 
-// ========== 串口输出一帧（用于有线直连） ==========
+// ========== 串口输出一帧 ==========
 void sendSerialFrame(const GamepadState &s) {
   char buf[19];
   buf[0]  = s.up      ? '1' : '0';
@@ -168,7 +179,73 @@ void sendSerialFrame(const GamepadState &s) {
   Serial.write(buf, 19);
 }
 
+// ========== 发送状态回执（通过ESP-NOW） ==========
+void sendStatusResponse() {
+  char resp[128];
+  snprintf(resp, sizeof(resp),
+    "STATUS: active_delay_us=%lu idle_delay_ms=%lu idle_timeout_ms=%lu debounce_ms=%ld tx_power=%u cpu_freq=%u mode=%u",
+    g_activeDelayUs, g_idleDelayMs, g_idleTimeoutMs, g_debounceMs, g_txPower, g_cpuFreqMhz, g_workMode);
+  esp_now_send(receiverMac, (uint8_t*)resp, strlen(resp));
+}
+
+// ========== 解析并执行命令 ==========
+void parseAndExecuteCommand(char *cmd) {
+  // 去除换行
+  cmd[strcspn(cmd, "\r\n")] = 0;
+  if (strlen(cmd) == 0) return;
+
+  if (strcmp(cmd, "GET_STATUS") == 0) {
+    sendStatusResponse();
+    return;
+  }
+
+  // 解析 "SET_XXX value"
+  char key[32];
+  int value = 0;
+  if (sscanf(cmd, "SET_%31s %d", key, &value) == 2) {
+    if (strcmp(key, "ACTIVE_DELAY_US") == 0 && value >= 100 && value <= 10000) {
+      g_activeDelayUs = value;
+      esp_now_send(receiverMac, (uint8_t*)"OK ACTIVE_DELAY_US changed", 28);
+    } else if (strcmp(key, "IDLE_DELAY_MS") == 0 && value >= 10 && value <= 1000) {
+      g_idleDelayMs = value;
+    } else if (strcmp(key, "IDLE_TIMEOUT_MS") == 0 && value >= 1000 && value <= 300000) {
+      g_idleTimeoutMs = value;
+    } else if (strcmp(key, "DEBOUNCE_MS") == 0 && value >= 0 && value <= 50) {
+      g_debounceMs = value;
+    } else if (strcmp(key, "TX_POWER") == 0 && value >= 0 && value <= 84) {
+      g_txPower = value;
+      esp_wifi_set_max_tx_power(g_txPower);
+    } else if (strcmp(key, "CPU_FREQ") == 0 && (value == 80 || value == 160 || value == 240)) {
+      g_cpuFreqMhz = value;
+      setCpuFrequencyMhz(g_cpuFreqMhz);
+    } else if (strcmp(key, "MODE") == 0 && value >= 0 && value <= 2) {
+      g_workMode = value;
+    } else {
+      esp_now_send(receiverMac, (uint8_t*)"ERR invalid param", 17);
+      return;
+    }
+    // 可选：发送确认
+    char ack[64];
+    snprintf(ack, sizeof(ack), "OK %s=%d", key, value);
+    esp_now_send(receiverMac, (uint8_t*)ack, strlen(ack));
+    return;
+  }
+
+  esp_now_send(receiverMac, (uint8_t*)"ERR unknown command", 19);
+}
+
+// ========== ESP-NOW 接收回调（用于接收来自接收端的命令） ==========
+void onDataRecv(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
+  if (len < (int)sizeof(cmdBuffer)-1) {
+    memcpy(cmdBuffer, data, len);
+    cmdBuffer[len] = '\0';
+    parseAndExecuteCommand(cmdBuffer);
+  }
+}
+
 void setup() {
+  // 先设置CPU频率
+  setCpuFrequencyMhz(g_cpuFreqMhz);
   Serial.begin(460800);
 
   // 引脚初始化
@@ -199,28 +276,27 @@ void setup() {
   // 初始化 ESP-NOW
   WiFi.mode(WIFI_STA);
   if (esp_now_init() != ESP_OK) {
-    Serial.println("ESP-NOW 初始化失败，但串口输出将继续工作");
+    Serial.println("ESP-NOW init failed, wireless disabled");
   } else {
-    // 设置发射功率（降低辐射）
-    esp_wifi_set_max_tx_power(TX_POWER);
+    esp_wifi_set_max_tx_power(g_txPower);
+    // 添加接收端对等方
     esp_now_peer_info_t peerInfo = {};
     memcpy(peerInfo.peer_addr, receiverMac, 6);
     peerInfo.channel = 0;
     peerInfo.encrypt = false;
-    if (esp_now_add_peer(&peerInfo) != ESP_OK) {
-      Serial.println("添加接收端失败，无线可能无法发送");
-    } else {
-      Serial.printf("无线模式已就绪，发射功率 = %d (x0.25dBm)\n", TX_POWER);
-    }
+    esp_now_add_peer(&peerInfo);
+    // 注册接收回调（接收命令）
+    esp_now_register_recv_cb(onDataRecv);
+    Serial.println("Wireless OK, command listening enabled");
   }
 
   memset(&lastSentState, 0, sizeof(lastSentState));
-  Serial.println("发送端已就绪（同时支持无线和串口，1000Hz）");
+  Serial.println("Sender ready (configurable)");
 }
 
 void loop() {
   static unsigned long lastActiveTime = millis();
-  static unsigned long currentDelayUs = ACTIVE_DELAY_US;   // 当前延迟（微秒）
+  static unsigned long currentDelayUs = g_activeDelayUs;
 
   GamepadState state = readButtons();
   bool anyPressed = isAnyButtonPressed(state);
@@ -229,22 +305,27 @@ void loop() {
     lastActiveTime = millis();
   }
 
-  // 动态调整扫描间隔（微秒单位）
+  // 动态调整扫描间隔
   if (anyPressed) {
-    if (currentDelayUs != ACTIVE_DELAY_US) currentDelayUs = ACTIVE_DELAY_US;
+    currentDelayUs = g_activeDelayUs;
   } else {
-    if (millis() - lastActiveTime >= IDLE_TIMEOUT_MS) {
-      unsigned long idleUs = IDLE_DELAY_MS * 1000UL;
-      if (currentDelayUs != idleUs) currentDelayUs = idleUs;
+    if (millis() - lastActiveTime >= g_idleTimeoutMs) {
+      currentDelayUs = g_idleDelayMs * 1000UL;
     } else {
-      if (currentDelayUs != ACTIVE_DELAY_US) currentDelayUs = ACTIVE_DELAY_US;
+      currentDelayUs = g_activeDelayUs;
     }
   }
 
-  // 状态变化时：同时发送无线和串口
+  // 发送数据（根据工作模式）
   if (memcmp(&state, &lastSentState, sizeof(state)) != 0) {
-    esp_now_send(receiverMac, (uint8_t*)&state, sizeof(state));  // 无线发送
-    sendSerialFrame(state);                                      // 有线串口发送
+    // 无线发送（如果工作模式允许）
+    if (g_workMode == 0 || g_workMode == 1) {
+      esp_now_send(receiverMac, (uint8_t*)&state, sizeof(state));
+    }
+    // 串口发送（如果工作模式允许）
+    if (g_workMode == 0 || g_workMode == 2) {
+      sendSerialFrame(state);
+    }
     lastSentState = state;
   }
 
