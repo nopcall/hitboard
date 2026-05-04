@@ -1,0 +1,310 @@
+//代码 ：基础蓝牙代码，可以正常连接电脑
+
+
+#include <BleGamepad.h>
+
+// ========== 引脚定义（完全对照表格）==========
+// 方向键
+#define PIN_UP      13
+#define PIN_DOWN    14
+#define PIN_LEFT    16
+#define PIN_RIGHT   15
+// 动作键
+#define PIN_A       17
+#define PIN_B       18
+#define PIN_X       35
+#define PIN_Y       36
+#define PIN_LB      38
+#define PIN_RB      37
+#define PIN_LT      34      // 原 LT 引脚
+#define PIN_RT      33      // 原 RT 引脚
+// 功能键
+#define PIN_START   41
+#define PIN_SELECT  42
+#define PIN_HOME    5
+#define PIN_CAPTURE 4
+// 摇杆按下 (LS/RS)
+#define PIN_LS      1
+#define PIN_RS      2
+// 新增组合键
+#define PIN_AB      11      // A+B
+#define PIN_XY      12      // X+Y
+#define PIN_AX      39      // A+X
+// 额外 LT 键 (GP10, GP9)
+#define PIN_LT_EXTRA1  10
+#define PIN_LT_EXTRA2  9
+// 额外 RT 键 (GP8, GP7)
+#define PIN_RT_EXTRA1  8
+#define PIN_RT_EXTRA2  7
+// 未使用但可预留的引脚：GP6, GP40 （暂不定义）
+
+// ========== 按钮 ID 映射 (1~16) ==========
+#define BTN_UP      1
+#define BTN_DOWN    2
+#define BTN_LEFT    3
+#define BTN_RIGHT   4
+#define BTN_A       5
+#define BTN_B       6
+#define BTN_X       7
+#define BTN_Y       8
+#define BTN_LB      9
+#define BTN_RB      10
+#define BTN_LT      11
+#define BTN_RT      12
+#define BTN_START   13
+#define BTN_SELECT  14
+#define BTN_HOME    15
+#define BTN_CAPTURE 16
+// LS 和 RS 使用自定义 ID (也可复用上述空闲，但为清晰分配 17,18)
+#define BTN_LS      17
+#define BTN_RS      18
+
+// ========== 配对相关常量 ==========
+#define PAIRING_HOLD_TIME_MS    8000
+
+// ========== 消抖相关参数 ==========
+#define DEBOUNCE_DELAY_MS       5
+#define SCAN_INTERVAL_MS        1
+
+BleGamepad bleGamepad("Hitbox Arcade", "ESP32-S3", 100);
+
+// 按键状态变量
+bool upPressed = false, downPressed = false, leftPressed = false, rightPressed = false;
+bool lastA = false, lastB = false, lastX = false, lastY = false;
+bool lastLB = false, lastRB = false;
+bool lastStart = false, lastHome = false, lastCapture = false;
+bool lastLS = false, lastRS = false;
+
+// 组合键状态
+bool lastAB = false, lastXY = false, lastAX = false;
+
+// 多路 LT/RT 逻辑状态
+bool lastLT = false;   // 整体 LT 最终状态
+bool lastRT = false;   // 整体 RT 最终状态
+
+// 消抖结构体
+struct DebounceState {
+  bool lastStableState;
+  bool lastReading;
+  unsigned long lastDebounceTime;
+};
+
+// 所有需要消抖的引脚
+DebounceState debStateUp, debStateDown, debStateLeft, debStateRight;
+DebounceState debStateA, debStateB, debStateX, debStateY;
+DebounceState debStateLB, debStateRB;
+DebounceState debStateLT, debStateLT1, debStateLT2;   // 三个 LT 源
+DebounceState debStateRT, debStateRT1, debStateRT2;   // 三个 RT 源
+DebounceState debStateStart, debStateSelect, debStateHome, debStateCapture;
+DebounceState debStateLS, debStateRS;
+DebounceState debStateAB, debStateXY, debStateAX;
+
+// 长按配对状态
+unsigned long selectPressStartTime = 0;
+bool selectIsPressed = false;
+bool pairingModeTriggered = false;
+
+// 通用消抖读取
+bool readDebounced(uint8_t pin, DebounceState &state) {
+  bool currentReading = (digitalRead(pin) == LOW);
+  if (currentReading != state.lastReading) {
+    state.lastDebounceTime = millis();
+    state.lastReading = currentReading;
+  }
+  if ((millis() - state.lastDebounceTime) > DEBOUNCE_DELAY_MS) {
+    if (currentReading != state.lastStableState) {
+      state.lastStableState = currentReading;
+    }
+  }
+  return state.lastStableState;
+}
+
+// SOCD 方向处理
+void updateDPad() {
+  bool rawUp    = readDebounced(PIN_UP,    debStateUp);
+  bool rawDown  = readDebounced(PIN_DOWN,  debStateDown);
+  bool rawLeft  = readDebounced(PIN_LEFT,  debStateLeft);
+  bool rawRight = readDebounced(PIN_RIGHT, debStateRight);
+  
+  if (rawUp && rawDown) rawUp = rawDown = false;
+  if (rawLeft && rawRight) rawLeft = rawRight = false;
+  
+  if (rawUp && !upPressed) { bleGamepad.press(BTN_UP); upPressed = true; }
+  else if (!rawUp && upPressed) { bleGamepad.release(BTN_UP); upPressed = false; }
+  
+  if (rawDown && !downPressed) { bleGamepad.press(BTN_DOWN); downPressed = true; }
+  else if (!rawDown && downPressed) { bleGamepad.release(BTN_DOWN); downPressed = false; }
+  
+  if (rawLeft && !leftPressed) { bleGamepad.press(BTN_LEFT); leftPressed = true; }
+  else if (!rawLeft && leftPressed) { bleGamepad.release(BTN_LEFT); leftPressed = false; }
+  
+  if (rawRight && !rightPressed) { bleGamepad.press(BTN_RIGHT); rightPressed = true; }
+  else if (!rawRight && rightPressed) { bleGamepad.release(BTN_RIGHT); rightPressed = false; }
+}
+
+// 单按键更新
+void updateButton(uint8_t pin, uint8_t btnId, bool &lastState, DebounceState &debState) {
+  bool pressed = readDebounced(pin, debState);
+  if (pressed && !lastState) { bleGamepad.press(btnId); lastState = true; }
+  else if (!pressed && lastState) { bleGamepad.release(btnId); lastState = false; }
+}
+
+// 组合键更新（两个键同时）
+void updateCombo(uint8_t pin, uint8_t btn1, uint8_t btn2, bool &lastComboState, DebounceState &debState) {
+  bool pressed = readDebounced(pin, debState);
+  if (pressed && !lastComboState) {
+    bleGamepad.press(btn1);
+    bleGamepad.press(btn2);
+    lastComboState = true;
+  } else if (!pressed && lastComboState) {
+    bleGamepad.release(btn1);
+    bleGamepad.release(btn2);
+    lastComboState = false;
+  }
+}
+
+// 多路 LT 更新（三路或逻辑）
+void updateMultiLT() {
+  bool raw1 = readDebounced(PIN_LT,        debStateLT);
+  bool raw2 = readDebounced(PIN_LT_EXTRA1, debStateLT1);
+  bool raw3 = readDebounced(PIN_LT_EXTRA2, debStateLT2);
+  bool anyPressed = raw1 || raw2 || raw3;
+  
+  if (anyPressed && !lastLT) {
+    bleGamepad.press(BTN_LT);
+    lastLT = true;
+  } else if (!anyPressed && lastLT) {
+    bleGamepad.release(BTN_LT);
+    lastLT = false;
+  }
+}
+
+// 多路 RT 更新（三路或逻辑）
+void updateMultiRT() {
+  bool raw1 = readDebounced(PIN_RT,        debStateRT);
+  bool raw2 = readDebounced(PIN_RT_EXTRA1, debStateRT1);
+  bool raw3 = readDebounced(PIN_RT_EXTRA2, debStateRT2);
+  bool anyPressed = raw1 || raw2 || raw3;
+  
+  if (anyPressed && !lastRT) {
+    bleGamepad.press(BTN_RT);
+    lastRT = true;
+  } else if (!anyPressed && lastRT) {
+    bleGamepad.release(BTN_RT);
+    lastRT = false;
+  }
+}
+
+// SELECT 按键处理（短按正常，长按清除配对）
+void handleSelectButton() {
+  bool currentState = readDebounced(PIN_SELECT, debStateSelect);
+  
+  if (currentState && !selectIsPressed) {
+    // 按下瞬间
+    selectPressStartTime = millis();
+    selectIsPressed = true;
+    pairingModeTriggered = false;
+    bleGamepad.press(BTN_SELECT);
+  } 
+  else if (!currentState && selectIsPressed) {
+    // 释放瞬间
+    selectIsPressed = false;
+    unsigned long pressDuration = millis() - selectPressStartTime;
+    if (pressDuration < PAIRING_HOLD_TIME_MS) {
+      bleGamepad.release(BTN_SELECT);
+    } else {
+      // 长按已经触发重启，无需释放
+    }
+    pairingModeTriggered = false;
+  }
+  else if (currentState && selectIsPressed && !pairingModeTriggered) {
+    unsigned long pressDuration = millis() - selectPressStartTime;
+    if (pressDuration >= PAIRING_HOLD_TIME_MS) {
+      pairingModeTriggered = true;
+      Serial.println("长按SELECT 8秒，清除配对并重启...");
+      bleGamepad.release(BTN_SELECT);   // 避免重启后处于按下状态
+      bleGamepad.deleteAllBonds();
+      bleGamepad.end();
+      delay(100);
+      ESP.restart();
+    }
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  
+  // 初始化所有按键引脚为输入上拉
+  pinMode(PIN_UP,      INPUT_PULLUP);
+  pinMode(PIN_DOWN,    INPUT_PULLUP);
+  pinMode(PIN_LEFT,    INPUT_PULLUP);
+  pinMode(PIN_RIGHT,   INPUT_PULLUP);
+  pinMode(PIN_A,       INPUT_PULLUP);
+  pinMode(PIN_B,       INPUT_PULLUP);
+  pinMode(PIN_X,       INPUT_PULLUP);
+  pinMode(PIN_Y,       INPUT_PULLUP);
+  pinMode(PIN_LB,      INPUT_PULLUP);
+  pinMode(PIN_RB,      INPUT_PULLUP);
+  pinMode(PIN_LT,      INPUT_PULLUP);
+  pinMode(PIN_RT,      INPUT_PULLUP);
+  pinMode(PIN_START,   INPUT_PULLUP);
+  pinMode(PIN_SELECT,  INPUT_PULLUP);
+  pinMode(PIN_HOME,    INPUT_PULLUP);
+  pinMode(PIN_CAPTURE, INPUT_PULLUP);
+  pinMode(PIN_LS,      INPUT_PULLUP);
+  pinMode(PIN_RS,      INPUT_PULLUP);
+  pinMode(PIN_AB,      INPUT_PULLUP);
+  pinMode(PIN_XY,      INPUT_PULLUP);
+  pinMode(PIN_AX,      INPUT_PULLUP);
+  pinMode(PIN_LT_EXTRA1, INPUT_PULLUP);
+  pinMode(PIN_LT_EXTRA2, INPUT_PULLUP);
+  pinMode(PIN_RT_EXTRA1, INPUT_PULLUP);
+  pinMode(PIN_RT_EXTRA2, INPUT_PULLUP);
+  
+  // 初始化消抖结构体 (初始状态：未按下，高电平)
+  DebounceState init = {HIGH, HIGH, 0};
+  debStateUp = debStateDown = debStateLeft = debStateRight = init;
+  debStateA = debStateB = debStateX = debStateY = init;
+  debStateLB = debStateRB = init;
+  debStateLT = debStateLT1 = debStateLT2 = init;
+  debStateRT = debStateRT1 = debStateRT2 = init;
+  debStateStart = debStateSelect = debStateHome = debStateCapture = init;
+  debStateLS = debStateRS = init;
+  debStateAB = debStateXY = debStateAX = init;
+  
+  bleGamepad.begin();
+  bleGamepad.setBatteryLevel(100);
+  
+  Serial.println("蓝牙手柄已就绪，所有按键已启用");
+}
+
+void loop() {
+  handleSelectButton();   // 处理 SELECT 长按配对
+  
+  if (bleGamepad.isConnected()) {
+    updateDPad();
+    
+    updateButton(PIN_A,       BTN_A,       lastA,       debStateA);
+    updateButton(PIN_B,       BTN_B,       lastB,       debStateB);
+    updateButton(PIN_X,       BTN_X,       lastX,       debStateX);
+    updateButton(PIN_Y,       BTN_Y,       lastY,       debStateY);
+    updateButton(PIN_LB,      BTN_LB,      lastLB,      debStateLB);
+    updateButton(PIN_RB,      BTN_RB,      lastRB,      debStateRB);
+    updateButton(PIN_START,   BTN_START,   lastStart,   debStateStart);
+    updateButton(PIN_HOME,    BTN_HOME,    lastHome,    debStateHome);
+    updateButton(PIN_CAPTURE, BTN_CAPTURE, lastCapture, debStateCapture);
+    updateButton(PIN_LS,      BTN_LS,      lastLS,      debStateLS);
+    updateButton(PIN_RS,      BTN_RS,      lastRS,      debStateRS);
+    
+    // 组合键
+    updateCombo(PIN_AB, BTN_A, BTN_B, lastAB, debStateAB);
+    updateCombo(PIN_XY, BTN_X, BTN_Y, lastXY, debStateXY);
+    updateCombo(PIN_AX, BTN_A, BTN_X, lastAX, debStateAX);
+    
+    // 多路 LT / RT
+    updateMultiLT();
+    updateMultiRT();
+  }
+  
+  delay(SCAN_INTERVAL_MS);
+}
