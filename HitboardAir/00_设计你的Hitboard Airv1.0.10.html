@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hitboard Creator~1.09（摇杆智能显示+Logo透明优化）</title>
+    <title>Hitboard Creator~1.09（物料清单更新）</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.3.2/color-thief.umd.js"></script>
     <style>
+        /* 样式与上一版本完全相同，省略以节省篇幅，实际代码中完整保留 */
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
         body { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; transition: background-color 0.2s, color 0.2s; }
         .editor-container { max-width: 1400px; width: 100%; border-radius: 32px; overflow: hidden; display: flex; flex-direction: row; backdrop-filter: blur(2px); transition: background-color 0.2s, border-color 0.2s, box-shadow 0.2s; position: relative; }
@@ -53,8 +54,7 @@
         .export-btn { border: none; padding: 16px 20px; border-radius: 40px; font-size: 1rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: space-between; border-width: 1px; border-style: solid; transition: background-color 0.2s, color 0.2s, border-color 0.2s; }
         .footer-note { margin-top: 30px; font-size: 0.7rem; text-align: center; border-top-width: 1px; border-top-style: solid; padding-top: 18px; transition: color 0.2s, border-color 0.2s; }
         .designer-credit { margin-top: 16px; font-size: 0.8rem; opacity: 0.7; text-align: center; transition: color 0.2s; }
-
-        /* 主题颜色 */
+        /* 主题颜色代码与上一版完全相同，此处省略... */
         body { background: #f5f7fa; }
         .editor-container { background: #ffffff; box-shadow: 0 20px 40px -12px rgba(0,0,0,0.15); border: 1px solid rgba(224, 230, 238, 0.6); }
         .preview-area { background: #fafcff; border-right-color: #e8ecf2; }
@@ -89,7 +89,6 @@
         .export-btn.secondary:hover { background: #3c506a; }
         .footer-note { color: #627a99; border-top-color: #2f4259; }
         .designer-credit { color: #a0b2c4; }
-
         body.theme-pink { background: #ffe4ec; }
         .theme-pink .editor-container { background: #ffffff; box-shadow: 0 20px 40px -12px rgba(255, 120, 160, 0.3); border: 1px solid #ffc0d0; }
         .theme-pink .preview-area { background: #fafcff; border-right-color: #e8ecf2; }
@@ -124,20 +123,16 @@
         .theme-pink .export-btn.secondary:hover { background: #ff7a9a; }
         .theme-pink .footer-note { color: #ffffff; border-top-color: #ffd0dd; }
         .theme-pink .designer-credit { color: #d96b8a; }
-
         .theme-toggle-wrapper { position: absolute; top: 20px; left: 20px; z-index: 100; }
         .theme-toggle-btn { width: 44px; height: 44px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.3); background: #2f5778; cursor: pointer; transition: background-color 0.2s, border-color 0.2s, transform 0.1s; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .theme-pink .theme-toggle-btn { background: #ff7f9f; }
         .theme-toggle-btn:hover { transform: scale(1.05); }
         .theme-toggle-btn:active { transform: scale(0.95); }
-
         .dock-settings { margin-top: 10px; margin-left: 24px; padding: 12px; background: rgba(0,0,0,0.05); border-radius: 12px; display: none; }
         .dock-settings.visible { display: block; }
         .dock-color-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
         .dock-follow-row { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
-
         #guideLineContainer { display: none; }
-
         #keyStyleContainer {
             margin-top: 10px;
             margin-left: 20px;
@@ -1179,13 +1174,15 @@
         const listStartY = prodY + outerH + 60, startX = margin + 30;
         let startY = listStartY;
 
+        // 必选物料（根据新表格更新）
         const baseItems = [
-            { category: '必选', name: 'Hitboard Air 3D 打印套件', qty: '1套', cost: 30, supplier: '自选' },
-            { category: '必选', name: '树莓派 Pico（RP2040 无焊接针脚）', qty: '1个', cost: 16, supplier: '自选' },
+            { category: '必选', name: 'Hitboard Air 3D 打印套件', qty: '1套', cost: 60, supplier: '自选' },
+            { category: '必选', name: '树莓派 Pico（RP2040 无焊接针脚）', qty: '1个', cost: 10, supplier: '自选' },
             { category: '必选', name: '导线（#30 外径0.56mm）', qty: '4米', cost: 4, supplier: '便民发明' },
             { category: '必选', name: '导电胶按钮（KX-1059 10mm底 5mm粗 9mm高）', qty: '2个', cost: 1, supplier: '惠购之选' },
             { category: '必选', name: '猎隼mini轴', qty: '16个', cost: 46, supplier: '凯华' },
-            { category: '必选', name: '凯华1350矮轴轴座', qty: '20个', cost: 9, supplier: 'YMDK' }
+            { category: '必选', name: '凯华1350矮轴轴座', qty: '20个', cost: 9, supplier: 'YMDK' },
+            { category: '必选', name: 'M2*5 螺丝（2mm 直径，5mm 长）', qty: '10颗', cost: 3, supplier: '固万基/以瑟' }
         ];
 
         let optionalItems = [];
@@ -1206,7 +1203,7 @@
             optionalItems.push({ category: '选配磁轴', name: '凯华磁轴（星磁 mini）', qty: '4个', cost: 11.9, supplier: '凯华' });
         }
         if (joystickEnabled) {
-            optionalItems.push({ category: '选配摇杆', name: 'J17-B10K PSP 四方向摇杆', qty: '1个', cost: 1, supplier: '小智电玩' });
+            optionalItems.push({ category: '选配摇杆', name: 'J17-B10K PSP 四方向摇杆', qty: '1个', cost: 1, supplier: '一键电子' }); // 供应商改回一键电子
         }
         if (dockCheck.checked) {
             optionalItems.push({ category: '选配Dock', name: 'Dock 3D 打印套件', qty: '1套', cost: 20, supplier: '自选' });
